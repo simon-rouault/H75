@@ -19,7 +19,7 @@ export const GOALS = {
   steps: { target: 10000, label: 'Pas', unit: 'pas', icon: '👟' },
   workout: { target: 7, label: 'Workout', unit: '/semaine', icon: '💪' },
   stretching: { target: 1, label: 'Stretching', unit: '', icon: '🧘' },
-  reinforcement: { target: 1, label: 'Renforcement', unit: '', icon: '🏋️' },
+  reinforcement: { target: 1, label: 'Musique', unit: '', icon: '🎵' },
   pages: { target: 15, label: 'Lecture', unit: 'pages', icon: '📖' },
   study_minutes: { target: 30, label: 'Étude', unit: 'min', icon: '📚' },
   alcohol: { target: 0, label: 'Alcool', unit: '', icon: '🚫' },

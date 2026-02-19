@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { DailyLog, HabitField } from '@/types/database';
 import { today } from '@/lib/dates';
 import { isDayCompleted } from '@/lib/streak-engine';
+import { updateStreak } from '@/lib/streak-updater';
 
 const DEFAULT_LOG: Omit<DailyLog, 'id' | 'user_id' | 'date' | 'created_at' | 'updated_at'> = {
   water_ml: 0,
@@ -61,6 +62,7 @@ export function useDailyLog(userId: string, date: string = today()) {
       // Recalculate completion
       updates.completed = isDayCompleted(updatedLog as DailyLog);
 
+      const wasCompleted = log.completed;
       const { data } = await supabase
         .from('daily_logs')
         .update(updates)
@@ -68,9 +70,15 @@ export function useDailyLog(userId: string, date: string = today()) {
         .select()
         .single();
 
-      if (data) setLog(data as DailyLog);
+      if (data) {
+        setLog(data as DailyLog);
+        const nowCompleted = (data as DailyLog).completed;
+        if (wasCompleted !== nowCompleted) {
+          await updateStreak(supabase, userId, date, nowCompleted);
+        }
+      }
     },
-    [log, supabase]
+    [log, supabase, userId, date]
   );
 
   const incrementWater = useCallback(

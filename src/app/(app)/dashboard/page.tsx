@@ -3,17 +3,17 @@
 import { useUser } from '@/hooks/useUser';
 import { useDailyLog } from '@/hooks/useDailyLog';
 import { useStreak } from '@/hooks/useStreak';
+import { useProfile } from '@/hooks/useProfile';
+import { useMeals } from '@/hooks/useMeals';
 import { Card } from '@/components/ui/Card';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { ProgressRing } from '@/components/ui/ProgressRing';
-import { Checkbox } from '@/components/ui/Checkbox';
 import { Button } from '@/components/ui/Button';
 import { Timer } from '@/components/ui/Timer';
-import { Modal } from '@/components/ui/Modal';
-import { Input } from '@/components/ui/Input';
 import { GOALS, CHALLENGE_DAYS, CHALLENGE_START_DATE, WATER_INCREMENTS } from '@/lib/constants';
-import { getDayNumber, getCompletionPercentage } from '@/lib/streak-engine';
-import { today } from '@/lib/dates';
+import { getDayNumber, getCompletionPercentage, isWorkoutDone } from '@/lib/streak-engine';
+import { toLocalDateStr } from '@/lib/dates';
+
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -102,8 +102,6 @@ function HabitCard({ icon, label, right, children, done }: { icon: string; label
 }
 
 function WaterTracker({ water, onIncrement, onSet }: { water: number; onIncrement: (n: number) => void; onSet: (n: number) => void }) {
-  const [editing, setEditing] = useState(false);
-  const [val, setVal] = useState('');
   const done = water >= GOALS.water_ml.target;
 
   return (
@@ -112,10 +110,10 @@ function WaterTracker({ water, onIncrement, onSet }: { water: number; onIncremen
       label={GOALS.water_ml.label}
       done={done}
       right={
-        <button onClick={() => { setVal(String(water)); setEditing(true); }} className="font-[family-name:var(--font-jetbrains-mono)] text-[13px] tabular-nums text-muted hover:text-foreground transition-colors">
+        <span className="font-[family-name:var(--font-jetbrains-mono)] text-[13px] tabular-nums">
           <span className={done ? 'text-green' : 'text-foreground'}>{(water / 1000).toFixed(1)}L</span>
           <span className="text-muted/60"> / {GOALS.water_ml.target / 1000}L</span>
-        </button>
+        </span>
       }
     >
       <ProgressBar value={water} max={GOALS.water_ml.target} color={done ? 'bg-green' : 'bg-blue'} />
@@ -127,21 +125,11 @@ function WaterTracker({ water, onIncrement, onSet }: { water: number; onIncremen
         ))}
         {water > 0 && <Button size="sm" variant="ghost" onClick={() => onSet(0)} className="text-muted ml-auto">Reset</Button>}
       </div>
-      <Modal open={editing} onClose={() => setEditing(false)} title="Eau (ml)">
-        <div className="text-center mb-3">
-          <span className="font-[family-name:var(--font-jetbrains-mono)] text-2xl font-bold text-accent">{val || '0'}</span>
-          <span className="text-muted/50 text-sm ml-1">ml</span>
-        </div>
-        <Input type="number" inputMode="numeric" pattern="[0-9]*" value={val} onChange={(e) => setVal(e.target.value)} placeholder="2000" autoFocus className="!text-[18px] !text-center" />
-        <Button className="w-full mt-4" onClick={() => { onSet(parseInt(val) || 0); setEditing(false); }}>Sauvegarder</Button>
-      </Modal>
     </HabitCard>
   );
 }
 
 function StepsTracker({ steps, onUpdate }: { steps: number; onUpdate: (n: number) => void }) {
-  const [editing, setEditing] = useState(false);
-  const [val, setVal] = useState('');
   const done = steps >= GOALS.steps.target;
 
   return (
@@ -150,21 +138,21 @@ function StepsTracker({ steps, onUpdate }: { steps: number; onUpdate: (n: number
       label={GOALS.steps.label}
       done={done}
       right={
-        <button onClick={() => { setVal(String(steps)); setEditing(true); }} className="font-[family-name:var(--font-jetbrains-mono)] text-[13px] tabular-nums text-muted hover:text-foreground transition-colors">
+        <span className="font-[family-name:var(--font-jetbrains-mono)] text-[13px] tabular-nums">
           <span className={done ? 'text-green' : 'text-foreground'}>{steps.toLocaleString()}</span>
           <span className="text-muted/60"> / {GOALS.steps.target.toLocaleString()}</span>
-        </button>
+        </span>
       }
     >
       <ProgressBar value={steps} max={GOALS.steps.target} color={done ? 'bg-green' : 'bg-accent'} />
-      <Modal open={editing} onClose={() => setEditing(false)} title="Nombre de pas">
-        <div className="text-center mb-3">
-          <span className="font-[family-name:var(--font-jetbrains-mono)] text-2xl font-bold text-accent">{val ? parseInt(val).toLocaleString() : '0'}</span>
-          <span className="text-muted/50 text-sm ml-1">pas</span>
+      <div className="flex items-center justify-between mt-3">
+        <div className="flex gap-1.5">
+          {steps >= 1000 && <Button size="sm" variant="secondary" onClick={() => onUpdate(steps - 1000)}>-1k</Button>}
+          <Button size="sm" variant="secondary" onClick={() => onUpdate(steps + 1000)}>+1k</Button>
+          <Button size="sm" variant="secondary" onClick={() => onUpdate(steps + 5000)}>+5k</Button>
         </div>
-        <Input type="number" inputMode="numeric" pattern="[0-9]*" value={val} onChange={(e) => setVal(e.target.value)} placeholder="10000" autoFocus className="!text-[18px] !text-center" />
-        <Button className="w-full mt-4" onClick={() => { onUpdate(parseInt(val) || 0); setEditing(false); }}>Sauvegarder</Button>
-      </Modal>
+        {steps > 0 && <Button size="sm" variant="ghost" onClick={() => onUpdate(0)} className="text-muted">Reset</Button>}
+      </div>
     </HabitCard>
   );
 }
@@ -174,6 +162,9 @@ function WorkoutTracker({ count, onUpdate }: { count: number; onUpdate: (v: numb
   const [weekTotal, setWeekTotal] = useState(0);
   const supabase = createClient();
 
+  const isRestDay = count === -1;
+  const dailyDone = isWorkoutDone(count);
+
   useEffect(() => {
     async function fetchWeek() {
       const now = new Date();
@@ -182,41 +173,64 @@ function WorkoutTracker({ count, onUpdate }: { count: number; onUpdate: (v: numb
       monday.setDate(now.getDate() - day + (day === 0 ? -6 : 1));
       const sunday = new Date(monday);
       sunday.setDate(monday.getDate() + 6);
-      const { data } = await supabase.from('daily_logs').select('workout_count').eq('user_id', userId).gte('date', monday.toISOString().split('T')[0]).lte('date', sunday.toISOString().split('T')[0]);
-      if (data) setWeekTotal(data.reduce((sum: number, d: { workout_count: number }) => sum + (d.workout_count || 0), 0));
+      const { data } = await supabase.from('daily_logs').select('workout_count').eq('user_id', userId).gte('date', toLocalDateStr(monday)).lte('date', toLocalDateStr(sunday));
+      if (data) setWeekTotal(data.reduce((sum: number, d: { workout_count: number }) => sum + Math.max(d.workout_count || 0, 0), 0));
     }
     fetchWeek();
   }, [userId, count, supabase]);
 
-  const done = weekTotal >= 7;
+  const weekDone = weekTotal >= 7;
 
   return (
     <HabitCard
       icon={GOALS.workout.icon}
       label={GOALS.workout.label}
-      done={done}
+      done={dailyDone}
       right={
         <span className="font-[family-name:var(--font-jetbrains-mono)] text-[13px] tabular-nums">
-          <span className={done ? 'text-green' : 'text-foreground'}>{weekTotal}</span>
-          <span className="text-muted/60">/7 sem.</span>
+          {isRestDay ? (
+            <span className="text-blue">Rest day</span>
+          ) : count > 0 ? (
+            <span className="text-green">{count} workout{count > 1 ? 's' : ''}</span>
+          ) : (
+            <span className="text-muted/40">-</span>
+          )}
         </span>
       }
     >
-      <ProgressBar value={weekTotal} max={7} color={done ? 'bg-green' : 'bg-accent'} />
-      <div className="flex items-center justify-between mt-3">
-        <span className="text-[12px] text-muted">Aujourd&apos;hui : <span className="font-[family-name:var(--font-jetbrains-mono)] text-foreground">{count}</span></span>
-        <div className="flex gap-1.5">
+      {/* Daily: rest day or workout count */}
+      <div className="flex gap-2 mb-3">
+        <button
+          onClick={() => onUpdate(isRestDay ? 0 : -1)}
+          className={`flex-1 py-2.5 rounded-xl text-[13px] font-semibold transition-all flex items-center justify-center gap-2 ${
+            isRestDay
+              ? 'bg-blue/10 text-blue border border-blue/20'
+              : 'bg-foreground/[0.04] text-muted border border-transparent hover:bg-foreground/[0.06]'
+          }`}
+        >
+          {isRestDay ? '✓' : ''} Rest day
+        </button>
+        <div className="flex items-center gap-1.5">
           {count > 0 && <Button size="sm" variant="secondary" onClick={() => onUpdate(count - 1)}>-</Button>}
-          <Button size="sm" variant="secondary" onClick={() => onUpdate(count + 1)}>+</Button>
+          <Button size="sm" variant="secondary" onClick={() => onUpdate(Math.max(count, 0) + 1)}>+1</Button>
         </div>
+      </div>
+      {/* Weekly progress */}
+      <div className="pt-2 border-t border-border/30">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-[11px] text-muted/60 font-medium">Semaine</span>
+          <span className="font-[family-name:var(--font-jetbrains-mono)] text-[12px] tabular-nums">
+            <span className={weekDone ? 'text-green' : 'text-foreground'}>{weekTotal}</span>
+            <span className="text-muted/40">/7</span>
+          </span>
+        </div>
+        <ProgressBar value={weekTotal} max={7} color={weekDone ? 'bg-green' : 'bg-accent'} />
       </div>
     </HabitCard>
   );
 }
 
 function PagesTracker({ pages, onUpdate }: { pages: number; onUpdate: (n: number) => void }) {
-  const [editing, setEditing] = useState(false);
-  const [val, setVal] = useState('');
   const done = pages >= GOALS.pages.target;
 
   return (
@@ -225,29 +239,27 @@ function PagesTracker({ pages, onUpdate }: { pages: number; onUpdate: (n: number
       label={GOALS.pages.label}
       done={done}
       right={
-        <button onClick={() => { setVal(String(pages)); setEditing(true); }} className="font-[family-name:var(--font-jetbrains-mono)] text-[13px] tabular-nums text-muted hover:text-foreground transition-colors">
+        <span className="font-[family-name:var(--font-jetbrains-mono)] text-[13px] tabular-nums">
           <span className={done ? 'text-green' : 'text-foreground'}>{pages}</span>
           <span className="text-muted/60"> / {GOALS.pages.target}</span>
-        </button>
+        </span>
       }
     >
       <ProgressBar value={pages} max={GOALS.pages.target} color={done ? 'bg-green' : 'bg-yellow'} />
-      <Modal open={editing} onClose={() => setEditing(false)} title="Pages lues">
-        <div className="text-center mb-3">
-          <span className="font-[family-name:var(--font-jetbrains-mono)] text-2xl font-bold text-accent">{val || '0'}</span>
-          <span className="text-muted/50 text-sm ml-1">pages</span>
+      <div className="flex items-center justify-between mt-3">
+        <div className="flex gap-1.5">
+          {pages > 0 && <Button size="sm" variant="secondary" onClick={() => onUpdate(Math.max(0, pages - 1))}>-1</Button>}
+          <Button size="sm" variant="secondary" onClick={() => onUpdate(pages + 1)}>+1</Button>
+          <Button size="sm" variant="secondary" onClick={() => onUpdate(pages + 5)}>+5</Button>
         </div>
-        <Input type="number" inputMode="numeric" pattern="[0-9]*" value={val} onChange={(e) => setVal(e.target.value)} placeholder="15" autoFocus className="!text-[18px] !text-center" />
-        <Button className="w-full mt-4" onClick={() => { onUpdate(parseInt(val) || 0); setEditing(false); }}>Sauvegarder</Button>
-      </Modal>
+        {pages > 0 && <Button size="sm" variant="ghost" onClick={() => onUpdate(0)} className="text-muted">Reset</Button>}
+      </div>
     </HabitCard>
   );
 }
 
 function StudyTracker({ minutes, onSave }: { minutes: number; onSave: (n: number) => void }) {
   const [showTimer, setShowTimer] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [val, setVal] = useState('');
   const done = minutes >= GOALS.study_minutes.target;
 
   return (
@@ -256,14 +268,22 @@ function StudyTracker({ minutes, onSave }: { minutes: number; onSave: (n: number
       label={GOALS.study_minutes.label}
       done={done}
       right={
-        <button onClick={() => { setVal(String(minutes)); setEditing(true); }} className="font-[family-name:var(--font-jetbrains-mono)] text-[13px] tabular-nums text-muted hover:text-foreground transition-colors">
+        <span className="font-[family-name:var(--font-jetbrains-mono)] text-[13px] tabular-nums">
           <span className={done ? 'text-green' : 'text-foreground'}>{minutes}</span>
           <span className="text-muted/60"> / {GOALS.study_minutes.target}min</span>
-        </button>
+        </span>
       }
     >
       <ProgressBar value={minutes} max={GOALS.study_minutes.target} color={done ? 'bg-green' : 'bg-blue'} />
-      <div className="mt-3">
+      <div className="flex items-center justify-between mt-3">
+        <div className="flex gap-1.5">
+          {minutes > 0 && <Button size="sm" variant="secondary" onClick={() => onSave(Math.max(0, minutes - 5))}>-5</Button>}
+          <Button size="sm" variant="secondary" onClick={() => onSave(minutes + 5)}>+5</Button>
+          <Button size="sm" variant="secondary" onClick={() => onSave(minutes + 15)}>+15</Button>
+          <Button size="sm" variant="secondary" onClick={() => onSave(minutes + 30)}>+30</Button>
+        </div>
+      </div>
+      <div className="mt-2">
         {showTimer ? (
           <div>
             <Timer targetMinutes={GOALS.study_minutes.target} initialMinutes={minutes} onSave={(m) => { onSave(m); setShowTimer(false); }} />
@@ -273,26 +293,28 @@ function StudyTracker({ minutes, onSave }: { minutes: number; onSave: (n: number
           <Button size="sm" variant="secondary" onClick={() => setShowTimer(true)}>Timer</Button>
         )}
       </div>
-      <Modal open={editing} onClose={() => setEditing(false)} title="Minutes d'étude">
-        <div className="text-center mb-3">
-          <span className="font-[family-name:var(--font-jetbrains-mono)] text-2xl font-bold text-accent">{val || '0'}</span>
-          <span className="text-muted/50 text-sm ml-1">min</span>
-        </div>
-        <Input type="number" inputMode="numeric" pattern="[0-9]*" value={val} onChange={(e) => setVal(e.target.value)} placeholder="30" autoFocus className="!text-[18px] !text-center" />
-        <Button className="w-full mt-4" onClick={() => { onSave(parseInt(val) || 0); setEditing(false); }}>Sauvegarder</Button>
-      </Modal>
     </HabitCard>
   );
+}
+
+function isCalorieGoalMet(calories: number, target: number, goal: string): boolean {
+  if (goal === 'gain') return calories >= target;
+  // lose, lean_bulk, maintain: stay at or under target
+  return calories <= target;
 }
 
 export default function DashboardPage() {
   const { userId, userName, userEmoji } = useUser();
   const { log, loading, updateField, incrementWater } = useDailyLog(userId);
   const { current } = useStreak(userId);
+  const { profile, targets } = useProfile(userId);
+  const { totals } = useMeals(userId);
+
+  const caloriesDone = isCalorieGoalMet(totals.calories, targets.calories, profile.goal);
 
   const dayNumber = getDayNumber(CHALLENGE_START_DATE);
-  const completionPct = log ? getCompletionPercentage(log) : 0;
-  const completedCount = log ? Math.round((completionPct / 100) * 7) : 0;
+  const completionPct = log ? getCompletionPercentage(log, caloriesDone) : 0;
+  const completedCount = log ? Math.round((completionPct / 100) * 8) : 0;
 
   if (loading || !log) {
     return (
@@ -332,7 +354,7 @@ export default function DashboardPage() {
             <div className="text-center">
               <div className={`font-[family-name:var(--font-jetbrains-mono)] text-[44px] font-bold tracking-tighter leading-none ${completionPct === 100 ? 'gradient-text' : ''}`}>{completionPct}<span className="text-[18px] text-muted/30">%</span></div>
               <div className="text-[11px] text-muted mt-2 font-medium">
-                {completionPct === 100 ? '🔥 Parfait !' : `${completedCount}/7 objectifs`}
+                {completionPct === 100 ? '🔥 Parfait !' : `${completedCount}/8 objectifs`}
               </div>
             </div>
           </ProgressRing>
@@ -361,13 +383,62 @@ export default function DashboardPage() {
         <StepsTracker steps={log.steps} onUpdate={(v) => updateField('steps', v)} />
         <WorkoutTracker count={log.workout_count} onUpdate={(v) => updateField('workout_count', v)} />
 
-        <HabitCard icon={GOALS.stretching.icon} label={GOALS.stretching.label} done={log.stretching}
-          right={<Checkbox checked={log.stretching} onChange={(v) => updateField('stretching', v)} />}
-        />
+        <HabitCard icon="🧘" label="Stretching ou Musique" done={log.stretching || log.reinforcement}>
+          <div className="flex gap-2">
+            <button
+              onClick={() => updateField('stretching', !log.stretching)}
+              className={`flex-1 py-2.5 rounded-xl text-[13px] font-semibold transition-all flex items-center justify-center gap-2 ${
+                log.stretching
+                  ? 'bg-green/10 text-green border border-green/20'
+                  : 'bg-foreground/[0.04] text-muted border border-transparent hover:bg-foreground/[0.06]'
+              }`}
+            >
+              {log.stretching ? '✓' : ''} Stretching
+            </button>
+            <button
+              onClick={() => updateField('reinforcement', !log.reinforcement)}
+              className={`flex-1 py-2.5 rounded-xl text-[13px] font-semibold transition-all flex items-center justify-center gap-2 ${
+                log.reinforcement
+                  ? 'bg-green/10 text-green border border-green/20'
+                  : 'bg-foreground/[0.04] text-muted border border-transparent hover:bg-foreground/[0.06]'
+              }`}
+            >
+              {log.reinforcement ? '✓' : ''} Musique
+            </button>
+          </div>
+        </HabitCard>
 
-        <HabitCard icon={GOALS.reinforcement.icon} label={GOALS.reinforcement.label} done={log.reinforcement}
-          right={<Checkbox checked={log.reinforcement} onChange={(v) => updateField('reinforcement', v)} />}
-        />
+        <HabitCard icon="🍽" label="Calories" done={caloriesDone}
+          right={
+            <span className="font-[family-name:var(--font-jetbrains-mono)] text-[13px] tabular-nums">
+              <span className={
+                caloriesDone ? 'text-green' : totals.calories > targets.calories ? 'text-red' : 'text-foreground'
+              }>{Math.round(totals.calories)}</span>
+              <span className="text-muted/60"> / {targets.calories}</span>
+            </span>
+          }
+        >
+          <ProgressBar
+            value={totals.calories}
+            max={targets.calories}
+            color={
+              totals.calories > targets.calories
+                ? 'bg-red'
+                : caloriesDone ? 'bg-green' : 'bg-accent'
+            }
+          />
+          <div className={`text-[11px] mt-2 ${totals.calories > targets.calories && profile.goal === 'lose' ? 'text-red/70 font-semibold' : 'text-muted/50'}`}>
+            {profile.goal === 'lose'
+              ? totals.calories > targets.calories
+                ? `Dépassé de ${Math.round(totals.calories - targets.calories)} kcal`
+                : totals.calories > 0
+                  ? `Encore ${Math.round(targets.calories - totals.calories)} kcal dispo`
+                  : 'Reste en dessous'
+              : profile.goal === 'maintain'
+                ? 'Reste autour (±10%)'
+                : 'Atteins ta cible'}
+          </div>
+        </HabitCard>
 
         <PagesTracker pages={log.pages} onUpdate={(v) => updateField('pages', v)} />
         <StudyTracker minutes={log.study_minutes} onSave={(v) => updateField('study_minutes', v)} />
