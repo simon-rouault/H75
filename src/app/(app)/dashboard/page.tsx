@@ -2,7 +2,6 @@
 
 import { useUser } from '@/hooks/useUser';
 import { useDailyLog } from '@/hooks/useDailyLog';
-import { useStreak } from '@/hooks/useStreak';
 import { useProfile } from '@/hooks/useProfile';
 import { useMeals } from '@/hooks/useMeals';
 import { Card } from '@/components/ui/Card';
@@ -12,7 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Timer } from '@/components/ui/Timer';
 import { GOALS, CHALLENGE_DAYS, CHALLENGE_START_DATE, WATER_INCREMENTS } from '@/lib/constants';
 import { getDayNumber, getCompletionPercentage, isWorkoutDone } from '@/lib/streak-engine';
-import { toLocalDateStr } from '@/lib/dates';
+import { toLocalDateStr, today } from '@/lib/dates';
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -41,19 +40,39 @@ function ThemeToggle() {
   );
 }
 
+function computeCurrentStreak(logs: { date: string; completed: boolean }[]): number {
+  const todayStr = today();
+  const completedSet = new Set(logs.filter((l) => l.completed).map((l) => l.date));
+  let streak = 0;
+  const d = new Date(CHALLENGE_START_DATE + 'T00:00:00');
+  const end = new Date(todayStr + 'T00:00:00');
+  let running = 0;
+  while (d <= end) {
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    if (completedSet.has(dateStr)) {
+      running++;
+    } else {
+      running = 0;
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  streak = running;
+  return streak;
+}
+
 function StreakBattle() {
   const [simonStreak, setSimonStreak] = useState(0);
   const [emmaStreak, setEmmaStreak] = useState(0);
   const supabase = createClient();
 
   useEffect(() => {
-    async function fetch() {
-      const { data: s } = await supabase.from('streaks').select('length').eq('user_id', 'simon').eq('active', true).single();
-      const { data: e } = await supabase.from('streaks').select('length').eq('user_id', 'emma').eq('active', true).single();
-      if (s) setSimonStreak(s.length);
-      if (e) setEmmaStreak(e.length);
+    async function fetchStreaks() {
+      const { data: sLogs } = await supabase.from('daily_logs').select('date, completed').eq('user_id', 'simon').order('date', { ascending: true });
+      const { data: eLogs } = await supabase.from('daily_logs').select('date, completed').eq('user_id', 'emma').order('date', { ascending: true });
+      if (sLogs) setSimonStreak(computeCurrentStreak(sLogs as { date: string; completed: boolean }[]));
+      if (eLogs) setEmmaStreak(computeCurrentStreak(eLogs as { date: string; completed: boolean }[]));
     }
-    fetch();
+    fetchStreaks();
   }, [supabase]);
 
   const leading = simonStreak > emmaStreak ? 'simon' : emmaStreak > simonStreak ? 'emma' : null;
@@ -306,9 +325,18 @@ function isCalorieGoalMet(calories: number, target: number, goal: string): boole
 export default function DashboardPage() {
   const { userId, userName, userEmoji } = useUser();
   const { log, loading, updateField, incrementWater } = useDailyLog(userId);
-  const { current } = useStreak(userId);
   const { profile, targets } = useProfile(userId);
   const { totals } = useMeals(userId);
+  const [myStreak, setMyStreak] = useState(0);
+  const supabase2 = createClient();
+
+  useEffect(() => {
+    async function fetchMyStreak() {
+      const { data } = await supabase2.from('daily_logs').select('date, completed').eq('user_id', userId).order('date', { ascending: true });
+      if (data) setMyStreak(computeCurrentStreak(data as { date: string; completed: boolean }[]));
+    }
+    fetchMyStreak();
+  }, [userId, supabase2, log?.completed]);
 
   const caloriesDone = isCalorieGoalMet(totals.calories, targets.calories, profile.goal);
 
@@ -358,11 +386,11 @@ export default function DashboardPage() {
               </div>
             </div>
           </ProgressRing>
-          {current && (
+          {myStreak > 0 && (
             <div className="mt-7 flex items-center gap-3 px-6 py-3 rounded-2xl bg-accent/5 border border-accent/15">
               <div className="w-2 h-2 rounded-full bg-accent animate-breathe" />
               <span className="text-[12px] text-accent/70 font-medium">Streak</span>
-              <span className="font-[family-name:var(--font-jetbrains-mono)] text-[18px] font-bold gradient-text">{current.length}</span>
+              <span className="font-[family-name:var(--font-jetbrains-mono)] text-[18px] font-bold gradient-text">{myStreak}</span>
               <span className="text-[12px] text-accent/70 font-medium">jours</span>
             </div>
           )}
