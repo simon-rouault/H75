@@ -2,18 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { useUser } from '@/hooks/useUser';
-import { useStreak } from '@/hooks/useStreak';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { CHALLENGE_START_DATE, CHALLENGE_DAYS } from '@/lib/constants';
-import { daysArray } from '@/lib/dates';
+import { daysArray, today } from '@/lib/dates';
 import { createClient } from '@/lib/supabase/client';
 import type { DailyLog } from '@/types/database';
 
 function CalendarGrid({ logs, startDate }: { logs: DailyLog[]; startDate: string }) {
   const days = daysArray(startDate, CHALLENGE_DAYS);
   const logMap = new Map(logs.map((l) => [l.date, l]));
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = today();
 
   const firstDay = new Date(startDate + 'T00:00:00').getDay();
   const padDays = firstDay === 0 ? 6 : firstDay - 1;
@@ -71,13 +70,46 @@ function ComparisonRow({ label, simonVal, emmaVal }: { label: string; simonVal: 
   );
 }
 
+function computeStreaks(logs: { date: string; completed: boolean }[], startDate: string): { current: number; best: number } {
+  const todayStr = today();
+  const completedSet = new Set(logs.filter((l) => l.completed).map((l) => l.date));
+
+  let best = 0;
+  let current = 0;
+  let streak = 0;
+
+  // Walk through all days from start to today
+  const start = new Date(startDate + 'T00:00:00');
+  const end = new Date(todayStr + 'T00:00:00');
+  const d = new Date(start);
+
+  while (d <= end) {
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    if (completedSet.has(dateStr)) {
+      streak++;
+      if (streak > best) best = streak;
+    } else {
+      streak = 0;
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  current = streak; // streak at the end = current streak
+
+  return { current, best };
+}
+
+function getElapsedDays(startDate: string): number {
+  const start = new Date(startDate + 'T00:00:00');
+  const now = new Date(today() + 'T00:00:00');
+  return Math.max(1, Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+}
+
 export default function StatsPage() {
   const { userId } = useUser();
-  const { current, best } = useStreak(userId);
 
   const [myLogs, setMyLogs] = useState<DailyLog[]>([]);
-  const [simonStats, setSimonStats] = useState({ streak: 0, completedDays: 0, total: 0 });
-  const [emmaStats, setEmmaStats] = useState({ streak: 0, completedDays: 0, total: 0 });
+  const [simonLogs, setSimonLogs] = useState<{ date: string; completed: boolean }[]>([]);
+  const [emmaLogs, setEmmaLogs] = useState<{ date: string; completed: boolean }[]>([]);
   const supabase = createClient();
 
   useEffect(() => {
@@ -86,31 +118,38 @@ export default function StatsPage() {
       if (logs) setMyLogs(logs as DailyLog[]);
 
       for (const uid of ['simon', 'emma']) {
-        const { data: uLogs } = await supabase.from('daily_logs').select('completed').eq('user_id', uid);
-        const { data: uStreak } = await supabase.from('streaks').select('length').eq('user_id', uid).eq('active', true).single();
-        const completedDays = uLogs?.filter((l: { completed: boolean }) => l.completed).length || 0;
-        const total = uLogs?.length || 0;
-        const streak = uStreak?.length || 0;
-        if (uid === 'simon') setSimonStats({ streak, completedDays, total });
-        else setEmmaStats({ streak, completedDays, total });
+        const { data: uLogs } = await supabase.from('daily_logs').select('date, completed').eq('user_id', uid).order('date', { ascending: true });
+        const parsed = (uLogs || []) as { date: string; completed: boolean }[];
+        if (uid === 'simon') setSimonLogs(parsed);
+        else setEmmaLogs(parsed);
       }
     }
     fetchData();
   }, [userId, supabase]);
 
+  const elapsed = getElapsedDays(CHALLENGE_START_DATE);
   const myCompletedDays = myLogs.filter((l) => l.completed).length;
-  const successRate = myLogs.length > 0 ? Math.round((myCompletedDays / myLogs.length) * 100) : 0;
+  const successRate = elapsed > 0 ? Math.round((myCompletedDays / elapsed) * 100) : 0;
+  const myStreaks = computeStreaks(myLogs, CHALLENGE_START_DATE);
+
+  const simonCompleted = simonLogs.filter((l) => l.completed).length;
+  const emmaCompleted = emmaLogs.filter((l) => l.completed).length;
+  const simonStreaks = computeStreaks(simonLogs, CHALLENGE_START_DATE);
+  const emmaStreaks = computeStreaks(emmaLogs, CHALLENGE_START_DATE);
 
   return (
     <div className="space-y-6">
       <PageHeader title="Statistiques" />
 
       <div className="grid grid-cols-2 gap-3">
-        <StatCard label="Meilleur streak" value={best} sub="jours" gradient />
-        <StatCard label="Taux de reussite" value={`${successRate}%`} sub={`${myCompletedDays}/${myLogs.length} jours`} />
+        <StatCard label="Streak actuel" value={myStreaks.current} sub="jours" gradient />
+        <StatCard label="Taux de reussite" value={`${successRate}%`} sub={`${myCompletedDays}/${elapsed} jours`} />
       </div>
 
-      {current && <StatCard label="Streak actuelle" value={current.length} gradient />}
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard label="Meilleur streak" value={myStreaks.best} sub="jours" gradient />
+        <StatCard label="Jours completes" value={myCompletedDays} sub={`sur ${elapsed} jours`} />
+      </div>
 
       <Card>
         <div className="flex items-center gap-3 mb-4">
@@ -135,12 +174,12 @@ export default function StatsPage() {
           <div className="w-20 text-center text-[13px] font-semibold">🦁</div>
           <div className="w-20 text-center text-[13px] font-semibold">🦊</div>
         </div>
-        <ComparisonRow label="Streak" simonVal={simonStats.streak} emmaVal={emmaStats.streak} />
-        <ComparisonRow label="Jours completes" simonVal={simonStats.completedDays} emmaVal={emmaStats.completedDays} />
+        <ComparisonRow label="Streak" simonVal={simonStreaks.current} emmaVal={emmaStreaks.current} />
+        <ComparisonRow label="Jours completes" simonVal={simonCompleted} emmaVal={emmaCompleted} />
         <ComparisonRow
           label="Taux de reussite"
-          simonVal={simonStats.total > 0 ? `${Math.round((simonStats.completedDays / simonStats.total) * 100)}%` : '-'}
-          emmaVal={emmaStats.total > 0 ? `${Math.round((emmaStats.completedDays / emmaStats.total) * 100)}%` : '-'}
+          simonVal={elapsed > 0 ? `${Math.round((simonCompleted / elapsed) * 100)}%` : '-'}
+          emmaVal={elapsed > 0 ? `${Math.round((emmaCompleted / elapsed) * 100)}%` : '-'}
         />
       </Card>
     </div>
