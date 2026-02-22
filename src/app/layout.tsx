@@ -44,7 +44,7 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning>
       <head>
-        <link rel="apple-touch-icon" href="/icon-192.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{if(localStorage.getItem('75j-theme')==='light')document.documentElement.classList.add('light')}catch(e){}})()` }} />
       </head>
       <body

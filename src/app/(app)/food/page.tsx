@@ -1,15 +1,14 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import Link from 'next/link';
 import { useUser } from '@/hooks/useUser';
 import { useMeals, useMealHistory } from '@/hooks/useMeals';
 import { useProfile } from '@/hooks/useProfile';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
 import { today } from '@/lib/dates';
-import { calculateMacros, ACTIVITY_LABELS, GOAL_LABELS, type UserProfile } from '@/lib/macros';
 import type { Meal } from '@/types/database';
 
 type InputMode = 'text' | 'photo' | 'voice';
@@ -135,16 +134,14 @@ export default function FoodPage() {
   const { userId } = useUser();
   const { meals, totals, addMeal, deleteMeal } = useMeals(userId);
   const { history } = useMealHistory(userId);
-  const { profile, targets, saveProfile } = useProfile(userId);
+  const { targets } = useProfile(userId);
   const [showHistory, setShowHistory] = useState(false);
 
   const [mode, setMode] = useState<InputMode>('text');
-  const [showProfile, setShowProfile] = useState(false);
-  const [editProfile, setEditProfile] = useState<UserProfile>(profile);
   const [textInput, setTextInput] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
   const [aiResult, setAiResult] = useState<AIResult | null>(null);
-  const [showResult, setShowResult] = useState(false);
+  const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const { transcript, listening, start: startVoice, stop: stopVoice } = useVoiceInput();
 
@@ -190,7 +187,6 @@ export default function FoodPage() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setAiResult(data);
-      setShowResult(true);
     } catch (err) {
       console.error(err);
       alert('Erreur lors de l\'analyse');
@@ -222,6 +218,7 @@ export default function FoodPage() {
 
   async function saveResult() {
     if (!aiResult) return;
+    setSaving(true);
     await addMeal({
       user_id: userId,
       date: today(),
@@ -234,9 +231,9 @@ export default function FoodPage() {
       ai_raw_response: aiResult.ai_raw_response || null,
       manually_adjusted: false,
     } as Omit<Meal, 'id' | 'created_at'>);
-    setShowResult(false);
     setAiResult(null);
     setTextInput('');
+    setSaving(false);
   }
 
   return (
@@ -249,12 +246,12 @@ export default function FoodPage() {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-accent/[0.06] rounded-full blur-[60px] pointer-events-none" />
 
         {/* Settings button */}
-        <button
-          onClick={() => { setEditProfile(profile); setShowProfile(true); }}
+        <Link
+          href="/profile"
           className="absolute top-4 right-4 z-10 w-8 h-8 rounded-lg bg-foreground/[0.04] hover:bg-foreground/[0.08] flex items-center justify-center text-muted/40 hover:text-muted transition-all duration-200 text-[13px]"
         >
           ⚙
-        </button>
+        </Link>
 
         {/* Calorie ring centered */}
         <div className="flex justify-center mb-6">
@@ -385,154 +382,78 @@ export default function FoodPage() {
         </div>
       </div>
 
-      {/* ═══════ AI RESULT MODAL ═══════ */}
-      <Modal open={showResult} onClose={() => setShowResult(false)} title="Résultat">
-        {aiResult && (
-          <div className="space-y-5">
-            {/* Meal name with accent underline */}
-            <div>
-              <div className="text-lg font-bold tracking-tight">{aiResult.name}</div>
-              <div className="h-[2px] w-12 bg-gradient-to-r from-accent to-transparent mt-2 rounded-full" />
+      {/* ═══════ AI RESULT — FULL PAGE VIEW ═══════ */}
+      {aiResult && (
+        <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
+          <div className="min-h-full flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-4">
+              <button
+                onClick={() => setAiResult(null)}
+                className="text-muted hover:text-foreground transition-colors w-9 h-9 flex items-center justify-center rounded-xl hover:bg-foreground/[0.06] text-sm"
+              >
+                ←
+              </button>
+              <h2 className="text-[15px] font-bold">Résultat de l&apos;analyse</h2>
+              <div className="w-9" />
             </div>
 
-            {/* Mini rings row */}
-            <div className="flex justify-around py-2">
-              <MiniRing value={aiResult.calories} label="Calories" unit="kcal" color="var(--accent)" />
-              <MiniRing value={aiResult.protein} label="Prot." unit="g" color="var(--blue)" />
-              <MiniRing value={aiResult.carbs} label="Gluc." unit="g" color="var(--yellow)" />
-              <MiniRing value={aiResult.fat} label="Lip." unit="g" color="var(--red)" />
-            </div>
-
-            <button
-              onClick={saveResult}
-              className="w-full py-3.5 rounded-xl font-semibold text-[14px] bg-gradient-to-r from-accent to-accent-hover text-white transition-all duration-200 active:scale-[0.97] shadow-[0_2px_16px_-4px_var(--glow-strong)]"
-            >
-              Sauvegarder
-            </button>
-          </div>
-        )}
-      </Modal>
-
-      {/* ═══════ PROFILE SETTINGS MODAL ═══════ */}
-      <Modal
-        open={showProfile}
-        onClose={() => setShowProfile(false)}
-        title="Mon profil"
-        footer={
-          <button
-            onClick={() => { saveProfile(editProfile); setShowProfile(false); }}
-            className="w-full py-3.5 rounded-xl font-semibold text-[14px] bg-gradient-to-r from-accent to-accent-hover text-white transition-all duration-200 active:scale-[0.97] shadow-[0_2px_16px_-4px_var(--glow-strong)]"
-          >
-            Enregistrer
-          </button>
-        }
-      >
-        <div className="space-y-5">
-          {/* Sex */}
-          <div>
-            <label className="block text-[11px] font-semibold text-muted uppercase tracking-[0.1em] mb-2">Sexe</label>
-            <div className="flex gap-2">
-              {(['male', 'female'] as const).map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setEditProfile({ ...editProfile, sex: s })}
-                  className={`flex-1 py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
-                    editProfile.sex === s
-                      ? 'bg-accent text-white shadow-[0_2px_12px_-4px_var(--glow-strong)]'
-                      : 'bg-foreground/[0.04] text-muted/60 hover:text-foreground border border-border/60'
-                  }`}
-                >
-                  {s === 'male' ? 'Homme' : 'Femme'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Age / Height / Weight */}
-          <div className="grid grid-cols-3 gap-3">
-            {([
-              { key: 'age', label: 'Âge', unit: 'ans', min: 14, max: 80 },
-              { key: 'height_cm', label: 'Taille', unit: 'cm', min: 120, max: 220 },
-              { key: 'weight_kg', label: 'Poids', unit: 'kg', min: 30, max: 200 },
-            ] as const).map((field) => (
-              <div key={field.key}>
-                <label className="block text-[10px] font-semibold text-muted uppercase tracking-[0.1em] mb-1.5">{field.label}</label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={field.min}
-                    max={field.max}
-                    value={editProfile[field.key]}
-                    onChange={(e) => setEditProfile({ ...editProfile, [field.key]: Number(e.target.value) })}
-                    className="w-full bg-foreground/[0.04] border border-border/60 rounded-xl px-3 py-2.5 text-foreground text-center font-[family-name:var(--font-jetbrains-mono)] text-[14px] font-bold focus:outline-none focus:border-accent/40 transition-all"
-                  />
-                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted/30 font-medium">{field.unit}</span>
+            {/* Content + Button together */}
+            <div className="px-5 pb-[max(2rem,env(safe-area-inset-bottom))]">
+              <div className="max-w-[420px] mx-auto space-y-5">
+                {/* Meal name */}
+                <div className="text-center">
+                  <div className="text-xl font-bold tracking-tight">{aiResult.name}</div>
+                  <div className="h-[2px] w-16 bg-gradient-to-r from-transparent via-accent to-transparent mt-3 rounded-full mx-auto" />
                 </div>
+
+                {/* Nutrition rings */}
+                <div className="flex justify-around py-3">
+                  <MiniRing value={aiResult.calories} label="Calories" unit="kcal" color="var(--accent)" />
+                  <MiniRing value={aiResult.protein} label="Prot." unit="g" color="var(--blue)" />
+                  <MiniRing value={aiResult.carbs} label="Gluc." unit="g" color="var(--yellow)" />
+                  <MiniRing value={aiResult.fat} label="Lip." unit="g" color="var(--red)" />
+                </div>
+
+                {/* Detail breakdown */}
+                <div className="bg-card rounded-2xl border border-border p-5 space-y-3">
+                  {[
+                    { label: 'Calories', value: `${Math.round(aiResult.calories)} kcal`, color: 'text-accent' },
+                    { label: 'Protéines', value: `${Math.round(aiResult.protein)} g`, color: 'text-blue' },
+                    { label: 'Glucides', value: `${Math.round(aiResult.carbs)} g`, color: 'text-yellow' },
+                    { label: 'Lipides', value: `${Math.round(aiResult.fat)} g`, color: 'text-red' },
+                  ].map((item) => (
+                    <div key={item.label} className="flex items-center justify-between py-1.5">
+                      <span className="text-[13px] text-muted">{item.label}</span>
+                      <span className={`font-[family-name:var(--font-jetbrains-mono)] text-[14px] font-bold ${item.color}`}>
+                        {item.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Save button — right after content */}
+                <button
+                  onClick={saveResult}
+                  disabled={saving}
+                  className="w-full py-4 rounded-2xl font-bold text-[17px] bg-gradient-to-r from-accent to-accent-hover text-white transition-all duration-200 active:scale-[0.97] shadow-[0_4px_24px_-4px_var(--glow-strong)] flex items-center justify-center gap-2.5 disabled:opacity-50"
+                >
+                  {saving ? (
+                    <span className="flex items-center gap-2">
+                      <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Enregistrement...
+                    </span>
+                  ) : (
+                    <>
+                      <span className="text-[20px]">✓</span> Enregistrer le repas
+                    </>
+                  )}
+                </button>
               </div>
-            ))}
-          </div>
-
-          {/* Activity level */}
-          <div>
-            <label className="block text-[11px] font-semibold text-muted uppercase tracking-[0.1em] mb-2">Activité</label>
-            <div className="space-y-1.5">
-              {(Object.entries(ACTIVITY_LABELS) as [UserProfile['activity_level'], string][]).map(([key, label]) => (
-                <button
-                  key={key}
-                  onClick={() => setEditProfile({ ...editProfile, activity_level: key })}
-                  className={`w-full text-left px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 ${
-                    editProfile.activity_level === key
-                      ? 'bg-accent/10 text-accent border border-accent/20'
-                      : 'bg-foreground/[0.03] text-muted/60 border border-transparent hover:text-foreground hover:bg-foreground/[0.05]'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
             </div>
           </div>
-
-          {/* Goal */}
-          <div>
-            <label className="block text-[11px] font-semibold text-muted uppercase tracking-[0.1em] mb-2">Objectif</label>
-            <div className="grid grid-cols-2 gap-2">
-              {(Object.entries(GOAL_LABELS) as [UserProfile['goal'], string][]).map(([key, label]) => (
-                <button
-                  key={key}
-                  onClick={() => setEditProfile({ ...editProfile, goal: key })}
-                  className={`py-2.5 rounded-xl text-[12px] font-semibold transition-all duration-200 ${
-                    editProfile.goal === key
-                      ? 'bg-accent text-white shadow-[0_2px_12px_-4px_var(--glow-strong)]'
-                      : 'bg-foreground/[0.04] text-muted/60 hover:text-foreground border border-border/60'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Calculated preview */}
-          <div className="bg-foreground/[0.03] rounded-xl p-4 border border-border/40">
-            <div className="text-[10px] font-bold text-muted/40 uppercase tracking-[0.12em] mb-3">Objectifs calculés</div>
-            <div className="grid grid-cols-4 gap-2 text-center">
-              {[
-                { label: 'Cal', value: calculateMacros(editProfile).calories, color: 'text-accent' },
-                { label: 'Prot', value: calculateMacros(editProfile).protein, color: 'text-blue' },
-                { label: 'Gluc', value: calculateMacros(editProfile).carbs, color: 'text-yellow' },
-                { label: 'Lip', value: calculateMacros(editProfile).fat, color: 'text-red' },
-              ].map((m) => (
-                <div key={m.label}>
-                  <div className={`font-[family-name:var(--font-jetbrains-mono)] text-[15px] font-bold ${m.color}`}>{m.value}</div>
-                  <div className="text-[9px] text-muted/40 mt-0.5">{m.label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
         </div>
-      </Modal>
+      )}
 
       {/* ═══════ TODAY'S MEALS ═══════ */}
       <div>
@@ -628,9 +549,9 @@ export default function FoodPage() {
             onClick={() => setShowHistory(!showHistory)}
             className="flex items-center gap-3 mb-4 w-full group"
           >
-            <span className="text-muted/50 text-sm">◇</span>
-            <span className="text-[11px] font-bold text-muted/50 uppercase tracking-[0.12em]">Historique</span>
-            <div className="flex-1 h-[1px] bg-gradient-to-r from-border/30 to-transparent" />
+            <span className="text-accent/70 text-sm">◆</span>
+            <span className="text-[11px] font-bold text-accent/60 uppercase tracking-[0.12em]">Historique</span>
+            <div className="flex-1 h-[1px] bg-gradient-to-r from-accent/10 to-transparent" />
             <span className="text-[11px] text-muted/30 font-medium group-hover:text-muted transition-colors">
               {showHistory ? '▲' : '▼'}
             </span>
@@ -638,8 +559,7 @@ export default function FoodPage() {
           {showHistory && (
             <div className="space-y-5 max-h-[60vh] overflow-y-auto">
               {Object.entries(history).map(([date, dateMeals]) => {
-                const d = new Date(date + 'T00:00:00');
-                const label = d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+                const label = new Date(date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
                 const dayTotal = dateMeals.reduce((s, m) => s + m.calories, 0);
                 return (
                   <div key={date}>
@@ -647,26 +567,33 @@ export default function FoodPage() {
                       <span className="text-[11px] font-semibold text-muted/60 capitalize">{label}</span>
                       <span className="font-[family-name:var(--font-jetbrains-mono)] text-[10px] text-muted/30">{dayTotal} kcal</span>
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
                       {dateMeals.map((meal) => (
                         <div
                           key={meal.id}
-                          className="bg-card/50 border border-border/50 rounded-xl p-3 flex items-center gap-3"
+                          className="bg-card border border-border rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 hover:border-border/80 group"
                         >
+                          <div className="w-9 h-9 rounded-xl bg-foreground/[0.04] flex items-center justify-center text-sm text-muted/40 flex-shrink-0">
+                            {meal.input_type === 'photo' ? '◉' : meal.input_type === 'voice' ? '♫' : '✎'}
+                          </div>
                           <div className="flex-1 min-w-0">
-                            <div className="text-[13px] font-medium truncate">{meal.name}</div>
-                            <div className="flex items-center gap-1.5 mt-1 font-[family-name:var(--font-jetbrains-mono)] text-[10px] text-muted/40">
-                              <span className="text-accent/60">{meal.calories}kcal</span>
+                            <div className="text-[14px] font-semibold truncate">{meal.name}</div>
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <span className="font-[family-name:var(--font-jetbrains-mono)] text-[11px] text-accent/70 font-bold">
+                                {meal.calories}<span className="text-muted/30 font-normal ml-0.5">kcal</span>
+                              </span>
                               <span className="text-border">·</span>
-                              <span><span className="text-blue/50">P</span>{meal.protein}</span>
-                              <span><span className="text-yellow/50">G</span>{meal.carbs}</span>
-                              <span><span className="text-red/50">L</span>{meal.fat}</span>
+                              <div className="flex items-center gap-1.5 font-[family-name:var(--font-jetbrains-mono)] text-[10px] text-muted/40">
+                                <span><span className="text-blue/60">P</span>{meal.protein}</span>
+                                <span><span className="text-yellow/60">G</span>{meal.carbs}</span>
+                                <span><span className="text-red/60">L</span>{meal.fat}</span>
+                              </div>
                             </div>
                           </div>
                           <button
                             onClick={() => quickAddMeal(meal)}
                             disabled={addingRecent === meal.id}
-                            className={`w-7 h-7 flex items-center justify-center rounded-lg text-[11px] transition-all duration-300 flex-shrink-0 ${
+                            className={`w-8 h-8 flex items-center justify-center rounded-lg text-[12px] transition-all duration-300 flex-shrink-0 ${
                               justAdded === meal.id
                                 ? 'bg-green/15 text-green'
                                 : addingRecent === meal.id
@@ -675,7 +602,7 @@ export default function FoodPage() {
                             }`}
                           >
                             {justAdded === meal.id ? '✓' : addingRecent === meal.id ? (
-                              <span className="w-2.5 h-2.5 border-[1.5px] border-accent/30 border-t-accent rounded-full animate-spin" />
+                              <span className="w-3 h-3 border-[1.5px] border-accent/30 border-t-accent rounded-full animate-spin" />
                             ) : '+'}
                           </button>
                         </div>

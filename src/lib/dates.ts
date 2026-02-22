@@ -1,6 +1,9 @@
+export function toLocalDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export function today(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  return toLocalDateStr(new Date());
 }
 
 export function formatDate(date: string): string {
@@ -20,11 +23,11 @@ export function formatDateShort(date: string): string {
 
 export function daysArray(startDate: string, count: number): string[] {
   const dates: string[] = [];
-  const start = new Date(startDate);
+  const start = new Date(startDate + 'T00:00:00');
   for (let i = 0; i < count; i++) {
     const d = new Date(start);
     d.setDate(d.getDate() + i);
-    dates.push(d.toISOString().split('T')[0]);
+    dates.push(toLocalDateStr(d));
   }
   return dates;
 }
