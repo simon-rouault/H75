@@ -7,33 +7,35 @@ export function isWorkoutDone(workoutCount: number): boolean {
   return workoutCount !== 0; // rest day (-1) or actual workout (>=1) both count
 }
 
+// The 6 daily objectives: water, steps, sport, personal goal (flex/music), reading, calories.
+export const OBJECTIVE_COUNT = 6;
+
 export function isDayCompleted(log: DailyLog, caloriesDone?: boolean): boolean {
   return (
     log.water_ml >= GOALS.water_ml.target &&
     log.steps >= GOALS.steps.target &&
     (log.stretching === true || log.reinforcement === true) &&
     log.pages >= GOALS.pages.target &&
-    log.study_minutes >= GOALS.study_minutes.target &&
-    log.alcohol === false &&
     (caloriesDone ?? true) &&
     isWorkoutDone(log.workout_count)
   );
 }
 
+export function getObjectiveCount(): number {
+  return OBJECTIVE_COUNT;
+}
+
 export function getCompletionPercentage(log: DailyLog, caloriesDone?: boolean): number {
   let completed = 0;
-  const total = 8; // water, steps, workout, stretching/musique, pages, study, alcohol, calories
 
   if (log.water_ml >= GOALS.water_ml.target) completed++;
   if (log.steps >= GOALS.steps.target) completed++;
   if (isWorkoutDone(log.workout_count)) completed++;
   if (log.stretching || log.reinforcement) completed++;
   if (log.pages >= GOALS.pages.target) completed++;
-  if (log.study_minutes >= GOALS.study_minutes.target) completed++;
-  if (!log.alcohol) completed++;
   if (caloriesDone) completed++;
 
-  return Math.round((completed / total) * 100);
+  return Math.round((completed / OBJECTIVE_COUNT) * 100);
 }
 
 export function getCompletedItems(log: DailyLog, caloriesDone?: boolean): Record<string, boolean> {
@@ -43,8 +45,6 @@ export function getCompletedItems(log: DailyLog, caloriesDone?: boolean): Record
     workout: isWorkoutDone(log.workout_count),
     stretching_renfo: log.stretching || log.reinforcement,
     pages: log.pages >= GOALS.pages.target,
-    study_minutes: log.study_minutes >= GOALS.study_minutes.target,
-    alcohol: !log.alcohol,
     calories: caloriesDone ?? false,
   };
 }

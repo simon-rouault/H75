@@ -22,15 +22,23 @@ export interface DailyLog {
   water_ml: number;
   steps: number;
   workout_count: number;
+  workout_types: string[];
   stretching: boolean;
   reinforcement: boolean;
   pages: number;
-  study_minutes: number;
-  alcohol: boolean;
+  note: string | null;
   completed: boolean;
   streak_day: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface WeightLog {
+  id: string;
+  user_id: string;
+  date: string;
+  weight_kg: number;
+  created_at: string;
 }
 
 export interface Meal {
@@ -60,15 +68,6 @@ export interface Justification {
   created_at: string;
 }
 
-export interface Sale {
-  id: string;
-  user_id: string;
-  amount: number;
-  client_name: string;
-  date: string;
-  created_at: string;
-}
-
 export interface Streak {
   id: string;
   user_id: string;
@@ -79,4 +78,4 @@ export interface Streak {
   created_at: string;
 }
 
-export type HabitField = 'water_ml' | 'steps' | 'workout_count' | 'stretching' | 'reinforcement' | 'pages' | 'study_minutes' | 'alcohol';
+export type HabitField = 'water_ml' | 'steps' | 'workout_count' | 'workout_types' | 'stretching' | 'reinforcement' | 'pages' | 'note';

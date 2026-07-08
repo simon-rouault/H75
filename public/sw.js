@@ -1,11 +1,5 @@
-const CACHE_NAME = '75-jours-v1';
-const STATIC_ASSETS = [
-  '/',
-  '/dashboard',
-  '/food',
-  '/justifier',
-  '/stats',
-];
+const CACHE_NAME = '75-jours-v3';
+const STATIC_ASSETS = ['/', '/dashboard', '/food', '/stats'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -25,7 +19,6 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-
   event.respondWith(
     fetch(event.request)
       .then((response) => {
@@ -34,5 +27,49 @@ self.addEventListener('fetch', (event) => {
         return response;
       })
       .catch(() => caches.match(event.request))
+  );
+});
+
+// ─── Notification scheduling ──────────────────────────────────────────────────
+
+let reminderTimeout = null;
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SCHEDULE_REMINDER') {
+    const { time, enabled } = event.data;
+    if (reminderTimeout) clearTimeout(reminderTimeout);
+    if (enabled && time) scheduleReminder(time);
+  }
+});
+
+function scheduleReminder(reminderTime) {
+  const [hours, minutes] = reminderTime.split(':').map(Number);
+  const now = new Date();
+  const target = new Date();
+  target.setHours(hours, minutes, 0, 0);
+  let delay = target.getTime() - now.getTime();
+  if (delay < 0) delay += 24 * 60 * 60 * 1000; // tomorrow
+
+  reminderTimeout = setTimeout(() => {
+    self.registration.showNotification('75 Jours 🔥', {
+      body: 'As-tu complété tous tes objectifs du jour ?',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: 'daily-reminder',
+    });
+    // Re-schedule for next day
+    scheduleReminder(reminderTime);
+  }, delay);
+}
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window' }).then((clients) => {
+      for (const client of clients) {
+        if (client.url.includes('/dashboard')) return client.focus();
+      }
+      return self.clients.openWindow('/dashboard');
+    })
   );
 });

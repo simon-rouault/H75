@@ -1,11 +1,82 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/hooks/useUser';
 import { useProfile } from '@/hooks/useProfile';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { calculateMacros, ACTIVITY_LABELS, GOAL_LABELS, type UserProfile } from '@/lib/macros';
+
+function NotificationSettings() {
+  const [enabled, setEnabled] = useState(false);
+  const [time, setTime] = useState('20:00');
+  const [permission, setPermission] = useState<NotificationPermission>('default');
+
+  useEffect(() => {
+    if ('Notification' in window) setPermission(Notification.permission);
+    const stored = localStorage.getItem('75j-notif');
+    if (stored) {
+      const { enabled: e, time: t } = JSON.parse(stored) as { enabled: boolean; time: string };
+      setEnabled(e);
+      if (t) setTime(t);
+    }
+  }, []);
+
+  async function toggle() {
+    if (!enabled) {
+      // Request permission
+      if ('Notification' in window && Notification.permission !== 'granted') {
+        const p = await Notification.requestPermission();
+        setPermission(p);
+        if (p !== 'granted') return;
+      }
+    }
+    const next = !enabled;
+    setEnabled(next);
+    const data = { enabled: next, time };
+    localStorage.setItem('75j-notif', JSON.stringify(data));
+    // Notify SW
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'SCHEDULE_REMINDER', ...data });
+    }
+  }
+
+  function saveTime(newTime: string) {
+    setTime(newTime);
+    const data = { enabled, time: newTime };
+    localStorage.setItem('75j-notif', JSON.stringify(data));
+    if (enabled && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'SCHEDULE_REMINDER', ...data });
+    }
+  }
+
+  if (!('Notification' in window)) return null;
+
+  return (
+    <div className="bg-card rounded-2xl border border-[var(--border)] p-5">
+      <label className="block text-[11px] font-semibold text-muted uppercase tracking-[0.1em] mb-4">Rappel quotidien</label>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <div className="text-[14px] font-medium">Notification de rappel</div>
+          <div className="text-[12px] text-muted mt-0.5">
+            {permission === 'denied' ? '🚫 Bloqué — Active les notifs dans Safari' : enabled ? 'Activé' : 'Désactivé'}
+          </div>
+        </div>
+        <button onClick={toggle} disabled={permission === 'denied'}
+          className={`relative w-12 h-7 rounded-full transition-all duration-200 ${enabled && permission === 'granted' ? 'bg-green' : 'bg-foreground/[0.10]'}`}>
+          <div className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow-md transition-all duration-200 ${enabled && permission === 'granted' ? 'left-[22px]' : 'left-0.5'}`} />
+        </button>
+      </div>
+      {enabled && permission === 'granted' && (
+        <div className="flex items-center gap-3">
+          <span className="text-[13px] text-muted">Heure du rappel</span>
+          <input type="time" value={time} onChange={e => saveTime(e.target.value)}
+            className="h-10 px-3 rounded-xl bg-foreground/[0.05] border border-[var(--border)] text-[14px] outline-none focus:border-accent/30 transition-all" />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ProfilePage() {
   const { userId } = useUser();
@@ -130,6 +201,9 @@ export default function ProfilePage() {
             ))}
           </div>
         </div>
+
+        {/* Notifications */}
+        <NotificationSettings />
 
         {/* Save button */}
         <button

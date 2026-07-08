@@ -3,28 +3,44 @@
 import { HTMLAttributes } from 'react';
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
+  variant?: 'default' | 'inset' | 'accent' | 'elevated';
+  /** @deprecated use variant="accent" */
   glow?: boolean;
+  /** @deprecated use className directly */
   glass?: boolean;
+  /** @deprecated use variant="accent" */
   accent?: boolean;
 }
 
-export function Card({ glow = false, glass = false, accent = false, className = '', children, ...props }: CardProps) {
+export function Card({
+  variant = 'default',
+  glow,
+  glass,
+  accent,
+  className = '',
+  children,
+  ...props
+}: CardProps) {
+  // Legacy compat
+  const resolvedVariant = glow || accent ? 'accent' : glass ? 'elevated' : variant;
+
+  const base = 'relative rounded-3xl transition-all duration-200 overflow-hidden';
+
+  const styles: Record<string, string> = {
+    default:
+      'bg-card p-5 shadow-[inset_0_0_0_0.5px_var(--border)]',
+    elevated:
+      'bg-card-secondary p-5 shadow-[inset_0_0_0_0.5px_var(--border),var(--shadow-md)]',
+    accent:
+      'bg-card p-5 shadow-[inset_0_0_0_0.5px_rgba(255,107,44,0.20),0_0_40px_-8px_var(--glow-strong)]',
+    inset:
+      'bg-foreground/[0.04] rounded-2xl p-4 shadow-[inset_0_0_0_0.5px_var(--separator)]',
+  };
+
   return (
-    <div
-      className={`relative rounded-2xl p-5 transition-all duration-300 overflow-hidden ${
-        glass
-          ? 'glass'
-          : glow
-            ? 'bg-card border border-accent/20 shadow-[0_0_40px_-8px_var(--glow-strong)]'
-            : accent
-              ? 'bg-card border border-accent/10'
-              : 'bg-card border border-border'
-      } ${className}`}
-      {...props}
-    >
-      {/* Top gradient line */}
-      {(accent || glow) && (
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-accent to-transparent" />
+    <div className={`${base} ${styles[resolvedVariant]} ${className}`} {...props}>
+      {resolvedVariant === 'accent' && (
+        <div className="absolute top-0 left-5 right-5 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent" />
       )}
       {children}
     </div>

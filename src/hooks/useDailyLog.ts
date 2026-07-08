@@ -5,17 +5,16 @@ import { createClient } from '@/lib/supabase/client';
 import type { DailyLog, HabitField } from '@/types/database';
 import { today } from '@/lib/dates';
 import { isDayCompleted } from '@/lib/streak-engine';
-import { updateStreak } from '@/lib/streak-updater';
 
 const DEFAULT_LOG: Omit<DailyLog, 'id' | 'user_id' | 'date' | 'created_at' | 'updated_at'> = {
   water_ml: 0,
   steps: 0,
   workout_count: 0,
+  workout_types: [],
   stretching: false,
   reinforcement: false,
   pages: 0,
-  study_minutes: 0,
-  alcohol: false,
+  note: null,
   completed: false,
   streak_day: 0,
 };
@@ -53,16 +52,17 @@ export function useDailyLog(userId: string, date: string = today()) {
   }, [fetchLog]);
 
   const updateField = useCallback(
-    async (field: HabitField, value: number | boolean | string | null) => {
+    async (field: HabitField, value: number | boolean | string | string[] | null) => {
       if (!log) return;
 
       const updates: Record<string, unknown> = { [field]: value };
       const updatedLog = { ...log, [field]: value };
 
-      // Recalculate completion
+      // Recalculate completion. Note: calorie objective lives in the meals table,
+      // so `completed` here reflects the non-calorie habits; the dashboard combines
+      // both for display, and streaks are always recomputed from daily_logs.
       updates.completed = isDayCompleted(updatedLog as DailyLog);
 
-      const wasCompleted = log.completed;
       const { data } = await supabase
         .from('daily_logs')
         .update(updates)
@@ -72,13 +72,9 @@ export function useDailyLog(userId: string, date: string = today()) {
 
       if (data) {
         setLog(data as DailyLog);
-        const nowCompleted = (data as DailyLog).completed;
-        if (wasCompleted !== nowCompleted) {
-          await updateStreak(supabase, userId, date, nowCompleted);
-        }
       }
     },
-    [log, supabase, userId, date]
+    [log, supabase]
   );
 
   const incrementWater = useCallback(

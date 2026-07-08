@@ -1,9 +1,13 @@
+import { APP_TIMEZONE } from './constants';
+
 export function toLocalDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// "Today" always resolves to the calendar date in the app timezone (Europe/Paris),
+// regardless of the device's own timezone. en-CA formats as YYYY-MM-DD.
 export function today(): string {
-  return toLocalDateStr(new Date());
+  return new Intl.DateTimeFormat('en-CA', { timeZone: APP_TIMEZONE }).format(new Date());
 }
 
 export function formatDate(date: string): string {

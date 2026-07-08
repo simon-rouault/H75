@@ -56,7 +56,17 @@ export default function RootLayout({
             __html: `
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
-                  navigator.serviceWorker.register('/sw.js');
+                  navigator.serviceWorker.register('/sw.js').then(reg => {
+                    try {
+                      const stored = localStorage.getItem('75j-notif');
+                      if (stored) {
+                        const data = JSON.parse(stored);
+                        if (data.enabled && reg.active) {
+                          reg.active.postMessage({ type: 'SCHEDULE_REMINDER', ...data });
+                        }
+                      }
+                    } catch(e) {}
+                  });
                 });
               }
             `,

@@ -11,16 +11,20 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-accent hover:bg-accent-hover text-white shadow-[0_1px_2px_rgba(0,0,0,0.3),0_4px_20px_-4px_var(--glow-strong)] hover:shadow-[0_1px_2px_rgba(0,0,0,0.3),0_6px_28px_-4px_var(--glow-strong)]',
-  secondary: 'bg-foreground/[0.05] hover:bg-foreground/[0.08] text-foreground border border-foreground/[0.08] hover:border-foreground/[0.12]',
-  ghost: 'hover:bg-foreground/[0.05] text-muted hover:text-foreground',
-  danger: 'bg-red/8 hover:bg-red/12 text-red border border-red/10',
+  primary:
+    'bg-accent hover:bg-accent-hover text-white font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.3),0_4px_16px_-4px_var(--glow-strong)]',
+  secondary:
+    'bg-foreground/[0.06] hover:bg-foreground/[0.10] text-foreground font-medium border border-[var(--border)]',
+  ghost:
+    'hover:bg-foreground/[0.06] text-foreground/60 hover:text-foreground font-medium',
+  danger:
+    'bg-red/[0.08] hover:bg-red/[0.13] text-red font-medium border border-red/10',
 };
 
 const sizes: Record<Size, string> = {
-  sm: 'px-3.5 py-2 text-[13px] rounded-xl',
-  md: 'px-5 py-2.5 text-sm rounded-xl',
-  lg: 'px-6 py-3.5 text-[15px] rounded-2xl',
+  sm: 'h-9 px-4 text-[13px] rounded-xl',
+  md: 'h-11 px-5 text-[14px] rounded-xl',
+  lg: 'h-[52px] px-7 text-[15px] rounded-2xl',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -28,7 +32,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     <button
       ref={ref}
       disabled={disabled}
-      className={`font-semibold tracking-[-0.01em] transition-all duration-200 active:scale-[0.96] disabled:opacity-30 disabled:pointer-events-none ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`inline-flex items-center justify-center tracking-[-0.01em] transition-all duration-150 active:scale-[0.96] disabled:opacity-30 disabled:pointer-events-none select-none ${variants[variant]} ${sizes[size]} ${className}`}
       {...props}
     />
   )

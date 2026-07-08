@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { today } from '@/lib/dates';
 import type { Meal } from '@/types/database';
 
-type InputMode = 'text' | 'photo' | 'voice';
+type InputMode = 'text' | 'photo' | 'voice' | 'barcode';
 
 interface AIResult {
   name: string;
@@ -20,6 +20,15 @@ interface AIResult {
   carbs: number;
   fat: number;
   ai_raw_response?: string;
+}
+
+interface BarcodeProduct {
+  name: string;
+  calories_per_100g: number;
+  protein_per_100g: number;
+  carbs_per_100g: number;
+  fat_per_100g: number;
+  image_url: string | null;
 }
 
 /* ─── SVG Ring Chart ─── */
@@ -143,13 +152,21 @@ export default function FoodPage() {
   const [aiResult, setAiResult] = useState<AIResult | null>(null);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const barcodeFileRef = useRef<HTMLInputElement>(null);
   const { transcript, listening, start: startVoice, stop: stopVoice } = useVoiceInput();
 
   const [addingRecent, setAddingRecent] = useState<string | null>(null);
   const [justAdded, setJustAdded] = useState<string | null>(null);
 
+  // Barcode state
+  const [barcodeInput, setBarcodeInput] = useState('');
+  const [barcodeProduct, setBarcodeProduct] = useState<BarcodeProduct | null>(null);
+  const [barcodeLoading, setBarcodeLoading] = useState(false);
+  const [barcodeError, setBarcodeError] = useState<string | null>(null);
+  const [barcodeGrams, setBarcodeGrams] = useState('100');
+
   // Segmented control animation
-  const modeIndex = mode === 'text' ? 0 : mode === 'photo' ? 1 : 2;
+  const modeIndex = mode === 'text' ? 0 : mode === 'photo' ? 1 : mode === 'voice' ? 2 : 3;
 
   async function quickAddMeal(meal: Meal) {
     if (addingRecent) return;
@@ -216,6 +233,68 @@ export default function FoodPage() {
     analyzeFood('voice', transcript);
   }
 
+  async function lookupBarcode(code: string) {
+    if (!code.trim()) return;
+    setBarcodeLoading(true);
+    setBarcodeError(null);
+    setBarcodeProduct(null);
+    try {
+      const res = await fetch(`/api/barcode?barcode=${encodeURIComponent(code.trim())}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Produit introuvable');
+      setBarcodeProduct(data as BarcodeProduct);
+      setBarcodeGrams('100');
+    } catch (e) {
+      setBarcodeError(e instanceof Error ? e.message : 'Erreur');
+    } finally {
+      setBarcodeLoading(false);
+    }
+  }
+
+  async function handleBarcodeImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Try BarcodeDetector API first
+    if ('BarcodeDetector' in window) {
+      try {
+        const img = await createImageBitmap(file);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const detector = new (window as any).BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'] });
+        const barcodes = await detector.detect(img);
+        if (barcodes.length > 0) {
+          setBarcodeInput(barcodes[0].rawValue);
+          lookupBarcode(barcodes[0].rawValue);
+          return;
+        }
+      } catch { /* fallback */ }
+    }
+    setBarcodeError('Impossible de lire le code-barre. Entre-le manuellement.');
+  }
+
+  async function saveBarcodeResult() {
+    if (!barcodeProduct) return;
+    const g = parseFloat(barcodeGrams);
+    if (isNaN(g) || g <= 0) return;
+    const factor = g / 100;
+    setSaving(true);
+    await addMeal({
+      user_id: userId,
+      date: today(),
+      name: `${barcodeProduct.name} (${g}g)`,
+      calories: Math.round(barcodeProduct.calories_per_100g * factor),
+      protein: Math.round(barcodeProduct.protein_per_100g * factor * 10) / 10,
+      carbs: Math.round(barcodeProduct.carbs_per_100g * factor * 10) / 10,
+      fat: Math.round(barcodeProduct.fat_per_100g * factor * 10) / 10,
+      input_type: 'text',
+      ai_raw_response: null,
+      manually_adjusted: false,
+    } as Omit<Meal, 'id' | 'created_at'>);
+    setBarcodeProduct(null);
+    setBarcodeInput('');
+    setBarcodeGrams('100');
+    setSaving(false);
+  }
+
   async function saveResult() {
     if (!aiResult) return;
     setSaving(true);
@@ -268,22 +347,18 @@ export default function FoodPage() {
 
       {/* ═══════ INPUT SECTION ═══════ */}
       <div className="space-y-4">
-        {/* Segmented control */}
-        <div className="relative flex bg-card rounded-2xl border border-border p-1.5">
-          {/* Sliding pill indicator */}
+        {/* Segmented control — 4 modes */}
+        <div className="relative flex bg-foreground/[0.05] rounded-2xl p-1 gap-0.5">
           <div
-            className="absolute top-1.5 bottom-1.5 rounded-xl bg-accent transition-all duration-300 ease-out shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_16px_-4px_var(--glow-strong)]"
-            style={{ left: `calc(${modeIndex * 33.333}% + 6px)`, width: 'calc(33.333% - 8px)' }}
+            className="absolute top-1 bottom-1 rounded-xl bg-accent transition-all duration-300 ease-out shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_-4px_var(--glow-strong)]"
+            style={{ left: `calc(${modeIndex * 25}% + 4px)`, width: 'calc(25% - 6px)' }}
           />
-          {(['text', 'photo', 'voice'] as const).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className={`relative z-10 flex-1 py-2.5 rounded-xl text-[13px] font-semibold transition-colors duration-300 ${
-                mode === m ? 'text-white' : 'text-muted/50 hover:text-muted'
-              }`}
-            >
-              {m === 'text' ? '✎ Texte' : m === 'photo' ? '◉ Photo' : '♫ Voix'}
+          {(['text', 'photo', 'voice', 'barcode'] as const).map((m) => (
+            <button key={m} onClick={() => setMode(m)}
+              className={`relative z-10 flex-1 py-2.5 rounded-xl text-[12px] font-semibold transition-colors duration-300 ${
+                mode === m ? 'text-white' : 'text-muted/50 hover:text-muted/80'
+              }`}>
+              {m === 'text' ? '✎ Texte' : m === 'photo' ? '📷 Photo' : m === 'voice' ? '🎤 Voix' : '🔲 Scan'}
             </button>
           ))}
         </div>
@@ -375,6 +450,57 @@ export default function FoodPage() {
                   >
                     {analyzing ? 'Analyse en cours...' : 'Analyser'}
                   </button>
+                </div>
+              )}
+            </div>
+          )}
+          {mode === 'barcode' && (
+            <div className="space-y-4">
+              {/* Scan via camera */}
+              <input ref={barcodeFileRef} type="file" accept="image/*" capture="environment" onChange={handleBarcodeImage} className="hidden" />
+              <button onClick={() => barcodeFileRef.current?.click()} disabled={barcodeLoading}
+                className="w-full py-7 rounded-xl border-2 border-dashed border-[var(--border)] hover:border-accent/30 text-muted hover:text-foreground transition-all flex flex-col items-center gap-2 disabled:opacity-30">
+                <span className="text-2xl opacity-50">🔲</span>
+                <span className="text-[13px] font-medium">Scanner un code-barre</span>
+              </button>
+
+              {/* Manual entry */}
+              <div className="flex gap-2">
+                <input type="text" value={barcodeInput} onChange={e => setBarcodeInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && lookupBarcode(barcodeInput)}
+                  placeholder="Code-barre (ex: 3017624010701)"
+                  className="flex-1 h-11 px-3 rounded-xl bg-foreground/[0.05] border border-[var(--border)] text-[14px] outline-none focus:border-accent/30 transition-all placeholder:text-muted/25" />
+                <Button size="md" onClick={() => lookupBarcode(barcodeInput)} disabled={barcodeLoading || !barcodeInput.trim()}>
+                  {barcodeLoading ? '...' : 'Chercher'}
+                </Button>
+              </div>
+
+              {/* Error */}
+              {barcodeError && <div className="text-[13px] text-red/80 bg-red/[0.06] border border-red/15 rounded-xl px-4 py-3">{barcodeError}</div>}
+
+              {/* Product result */}
+              {barcodeProduct && (
+                <div className="bg-foreground/[0.04] rounded-xl border border-[var(--border)] p-4 space-y-4 animate-spring-pop">
+                  <div>
+                    <div className="text-[15px] font-semibold">{barcodeProduct.name}</div>
+                    <div className="text-[11px] text-muted mt-0.5">Pour 100g : {barcodeProduct.calories_per_100g} kcal · P{Math.round(barcodeProduct.protein_per_100g)}g · G{Math.round(barcodeProduct.carbs_per_100g)}g · L{Math.round(barcodeProduct.fat_per_100g)}g</div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-[13px] text-muted font-medium whitespace-nowrap">Quantité (g)</div>
+                    <input type="number" value={barcodeGrams} onChange={e => setBarcodeGrams(e.target.value)}
+                      className="w-24 h-10 px-3 rounded-xl bg-background border border-[var(--border)] text-[14px] text-center outline-none focus:border-accent/30 transition-all" />
+                  </div>
+                  {parseFloat(barcodeGrams) > 0 && (
+                    <div className="text-[12px] text-muted/60 font-[family-name:var(--font-jetbrains-mono)]">
+                      → {Math.round(barcodeProduct.calories_per_100g * parseFloat(barcodeGrams) / 100)} kcal ·
+                      P{Math.round(barcodeProduct.protein_per_100g * parseFloat(barcodeGrams) / 100)}g ·
+                      G{Math.round(barcodeProduct.carbs_per_100g * parseFloat(barcodeGrams) / 100)}g ·
+                      L{Math.round(barcodeProduct.fat_per_100g * parseFloat(barcodeGrams) / 100)}g
+                    </div>
+                  )}
+                  <Button onClick={saveBarcodeResult} disabled={saving} className="w-full">
+                    {saving ? 'Enregistrement...' : 'Ajouter le repas'}
+                  </Button>
                 </div>
               )}
             </div>
@@ -478,7 +604,7 @@ export default function FoodPage() {
               >
                 {/* Input type icon */}
                 <div className="w-9 h-9 rounded-xl bg-foreground/[0.04] flex items-center justify-center text-sm text-muted/40 flex-shrink-0">
-                  {meal.input_type === 'photo' ? '◉' : meal.input_type === 'voice' ? '♫' : '✎'}
+                  {meal.input_type === 'photo' ? '📷' : meal.input_type === 'voice' ? '🎤' : '✏️'}
                 </div>
                 {/* Content */}
                 <div className="flex-1 min-w-0">
@@ -574,7 +700,7 @@ export default function FoodPage() {
                           className="bg-card border border-border rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 hover:border-border/80 group"
                         >
                           <div className="w-9 h-9 rounded-xl bg-foreground/[0.04] flex items-center justify-center text-sm text-muted/40 flex-shrink-0">
-                            {meal.input_type === 'photo' ? '◉' : meal.input_type === 'voice' ? '♫' : '✎'}
+                            {meal.input_type === 'photo' ? '📷' : meal.input_type === 'voice' ? '🎤' : '✏️'}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="text-[14px] font-semibold truncate">{meal.name}</div>
