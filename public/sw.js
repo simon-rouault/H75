@@ -1,4 +1,4 @@
-const CACHE_NAME = '75-jours-v3';
+const CACHE_NAME = '75-jours-v4';
 const STATIC_ASSETS = ['/', '/dashboard', '/food', '/stats'];
 
 self.addEventListener('install', (event) => {

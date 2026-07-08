@@ -35,18 +35,18 @@ function ThemeToggle() {
 
 // ─── Streak computation ────────────────────────────────────────────────────────
 
-function computeCurrentStreak(logs: { date: string; completed: boolean }[]): number {
+function computeStreaks(logs: { date: string; completed: boolean }[]): { current: number; best: number } {
   const todayStr = today();
   const completedSet = new Set(logs.filter((l) => l.completed).map((l) => l.date));
-  let running = 0;
+  let running = 0, best = 0;
   const d = new Date(CHALLENGE_START_DATE + 'T00:00:00');
   const end = new Date(todayStr + 'T00:00:00');
   while (d <= end) {
     const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    completedSet.has(ds) ? running++ : (running = 0);
+    if (completedSet.has(ds)) { running++; if (running > best) best = running; } else { running = 0; }
     d.setDate(d.getDate() + 1);
   }
-  return running;
+  return { current: running, best };
 }
 
 // ─── Section label ─────────────────────────────────────────────────────────────
@@ -189,8 +189,8 @@ function StreakBattle() {
         supabase.from('daily_logs').select('date, completed').eq('user_id', 'simon').order('date', { ascending: true }),
         supabase.from('daily_logs').select('date, completed').eq('user_id', 'emma').order('date', { ascending: true }),
       ]);
-      if (s) setSimonStreak(computeCurrentStreak(s as { date: string; completed: boolean }[]));
-      if (e) setEmmaStreak(computeCurrentStreak(e as { date: string; completed: boolean }[]));
+      if (s) setSimonStreak(computeStreaks(s as { date: string; completed: boolean }[]).current);
+      if (e) setEmmaStreak(computeStreaks(e as { date: string; completed: boolean }[]).current);
     }
     fetchStreaks();
   }, [supabase]);
@@ -369,6 +369,50 @@ function CompletionOverlay({ show, onClose, streak }: { show: boolean; onClose: 
   );
 }
 
+// ─── Challenge-won overlay (75-day streak reached) ───────────────────────────────
+
+function SuccessOverlay({ show, onClose, streak }: { show: boolean; onClose: () => void; streak: number }) {
+  if (!show) return null;
+  const confetti = Array.from({ length: 40 });
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center px-6 animate-fade-in overflow-hidden"
+      style={{ background: 'rgba(0,0,0,0.94)', backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)' }}
+      onClick={onClose}>
+      {/* Confetti */}
+      {confetti.map((_, i) => {
+        const colors = ['var(--accent)', 'var(--green)', 'var(--blue)', 'var(--yellow)', 'var(--red)'];
+        return (
+          <span key={i}
+            className="absolute top-[-10%] rounded-[2px]"
+            style={{
+              left: `${(i * 97) % 100}%`,
+              width: 8, height: 14,
+              background: colors[i % colors.length],
+              animation: `confetti-fall ${2.4 + (i % 5) * 0.35}s linear ${(i % 8) * 0.18}s infinite`,
+              opacity: 0.9,
+            }} />
+        );
+      })}
+      <div className="relative flex flex-col items-center">
+        <div className="text-[104px] mb-2 animate-bounce-in">🏆</div>
+        <div className="text-[11px] font-bold text-accent/70 uppercase tracking-[0.28em] mb-2">Défi réussi</div>
+        <h2 className="font-[family-name:var(--font-dela-gothic)] text-[32px] gradient-text mb-3 text-center leading-tight">75 jours d&apos;affilée&nbsp;!</h2>
+        <p className="text-muted text-[14px] text-center mb-7 max-w-[300px]">
+          Tu as construit l&apos;habitude. Continue sur ta lancée — le défi ne s&apos;arrête pas ici. 💪
+        </p>
+        <div className="flex items-center gap-4 px-8 py-5 rounded-3xl bg-accent/[0.10] shadow-[inset_0_0_0_0.5px_rgba(255,107,44,0.25),0_0_50px_-10px_var(--glow-strong)] mb-6">
+          <span className="text-3xl">🔥</span>
+          <div>
+            <div className="font-[family-name:var(--font-jetbrains-mono)] text-[48px] font-bold gradient-text leading-none">{streak}</div>
+            <div className="text-[11px] text-muted/70 mt-1">jours de streak</div>
+          </div>
+        </div>
+        <p className="text-[11px] text-muted/35">Appuie n&apos;importe où pour continuer</p>
+      </div>
+    </div>
+  );
+}
+
 // ─── Calories helper ───────────────────────────────────────────────────────────
 
 function isCalorieGoalMet(calories: number, target: number, goal: string): boolean {
@@ -384,16 +428,30 @@ export default function DashboardPage() {
   const { profile, targets } = useProfile(userId);
   const { totals } = useMeals(userId);
   const [myStreak, setMyStreak] = useState(0);
+  const [myBest, setMyBest] = useState(0);
   const [showCompletion, setShowCompletion] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const prevCompletedRef = useRef<boolean | null>(null);
   const [weeklyTotal, setWeeklyTotal] = useState(0);
   const supabase = createClient();
+
+  const challengeWon = myBest >= CHALLENGE_DAYS;
 
   useEffect(() => {
     async function fetchMyStreak() {
       const { data } = await supabase.from('daily_logs').select('date, completed')
         .eq('user_id', userId).order('date', { ascending: true });
-      if (data) setMyStreak(computeCurrentStreak(data as { date: string; completed: boolean }[]));
+      if (data) {
+        const { current, best } = computeStreaks(data as { date: string; completed: boolean }[]);
+        setMyStreak(current);
+        setMyBest(best);
+        // Celebrate the first time the 75-day streak is reached (once per device).
+        const wonKey = `75j-won-${userId}`;
+        if (best >= CHALLENGE_DAYS && typeof window !== 'undefined' && !localStorage.getItem(wonKey)) {
+          localStorage.setItem(wonKey, '1');
+          setShowSuccess(true);
+        }
+      }
     }
     fetchMyStreak();
   }, [userId, supabase, log?.completed]);
@@ -445,7 +503,8 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-3">
-      <CompletionOverlay show={showCompletion} onClose={() => setShowCompletion(false)} streak={myStreak} />
+      <CompletionOverlay show={showCompletion && !showSuccess} onClose={() => setShowCompletion(false)} streak={myStreak} />
+      <SuccessOverlay show={showSuccess} onClose={() => setShowSuccess(false)} streak={myStreak} />
 
       {/* ── Hero header ── */}
       <div className="relative pt-10 pb-2 animate-fade-up">
@@ -462,7 +521,16 @@ export default function DashboardPage() {
               {dayNumber}
             </span>
           </div>
-          <p className="text-[14px] text-muted/40 font-medium mt-1">sur {CHALLENGE_DAYS} jours</p>
+          <p className="text-[14px] text-muted/40 font-medium mt-1">
+            {dayNumber <= CHALLENGE_DAYS ? `sur ${CHALLENGE_DAYS} jours` : 'habitude en cours 💪'}
+          </p>
+          {challengeWon && (
+            <div className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-green/[0.12] shadow-[inset_0_0_0_0.5px_rgba(48,209,88,0.30)] animate-bounce-in">
+              <span className="text-[13px]">🏆</span>
+              <span className="text-[12px] font-bold text-green">Défi réussi</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-green"><path d="M20 6L9 17l-5-5" /></svg>
+            </div>
+          )}
         </div>
       </div>
 
@@ -483,7 +551,9 @@ export default function DashboardPage() {
           <div className="mt-5 flex items-center gap-2.5 px-5 py-2.5 rounded-2xl bg-accent/[0.07] shadow-[inset_0_0_0_0.5px_rgba(255,107,44,0.15)]">
             <span className="text-[18px]">🔥</span>
             <span className="font-[family-name:var(--font-jetbrains-mono)] text-[22px] font-bold gradient-text">{myStreak}</span>
-            <span className="text-[12px] text-accent/60">jours de streak</span>
+            <span className="text-[12px] text-accent/60">
+              {challengeWon ? 'jours de streak' : `/ ${CHALLENGE_DAYS} jours`}
+            </span>
           </div>
         )}
 

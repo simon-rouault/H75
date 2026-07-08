@@ -1,9 +1,6 @@
 export const CHALLENGE_DAYS = 75;
 export const CHALLENGE_START_DATE = '2026-07-09'; // Day 1 = 9 July 2026 (fresh restart)
 
-// The whole app reasons about dates in this timezone, whatever the device's tz.
-export const APP_TIMEZONE = 'Europe/Paris';
-
 export const USERS = {
   simon: {
     id: 'simon',

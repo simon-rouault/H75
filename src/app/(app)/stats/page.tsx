@@ -57,7 +57,8 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 // ─── Calendar Grid ─────────────────────────────────────────────────────────────
 
 function CalendarGrid({ logs, startDate }: { logs: DailyLog[]; startDate: string }) {
-  const days = daysArray(startDate, CHALLENGE_DAYS);
+  // At least 75 days, but keep extending as the habit continues past the challenge.
+  const days = daysArray(startDate, Math.max(CHALLENGE_DAYS, getElapsedDays(startDate)));
   const logMap = new Map(logs.map(l => [l.date, l]));
   const todayStr = today();
   const firstDay = new Date(startDate + 'T00:00:00').getDay();
@@ -104,7 +105,7 @@ function DualCalendar({ simonLogs, emmaLogs, startDate }: {
   emmaLogs: { date: string; completed: boolean }[];
   startDate: string;
 }) {
-  const days = daysArray(startDate, CHALLENGE_DAYS);
+  const days = daysArray(startDate, Math.max(CHALLENGE_DAYS, getElapsedDays(startDate)));
   const todayStr = today();
   const sMap = new Map(simonLogs.map(l => [l.date, l.completed]));
   const eMap = new Map(emmaLogs.map(l => [l.date, l.completed]));
@@ -333,6 +334,17 @@ export default function StatsPage() {
       {tab === 'stats' && (
         <div className="space-y-0 animate-fade-up">
 
+          {/* Challenge won banner */}
+          {myStreaks.best >= CHALLENGE_DAYS && (
+            <div className="mt-4 flex items-center gap-3 px-5 py-4 rounded-3xl bg-green/[0.10] shadow-[inset_0_0_0_0.5px_rgba(48,209,88,0.25)]">
+              <span className="text-[26px]">🏆</span>
+              <div>
+                <div className="text-[14px] font-bold text-green">Défi réussi — {CHALLENGE_DAYS} jours d&apos;affilée</div>
+                <div className="text-[12px] text-muted/60 mt-0.5">L&apos;habitude est ancrée. Continue sur ta lancée 💪</div>
+              </div>
+            </div>
+          )}
+
           {/* Key stats 2x2 */}
           <SectionLabel>Performance</SectionLabel>
           <div className="bg-card rounded-3xl shadow-[inset_0_0_0_0.5px_var(--border)] overflow-hidden">
@@ -366,7 +378,7 @@ export default function StatsPage() {
           <WeightChart userId={userId} />
 
           {/* Calendar */}
-          <SectionLabel>Calendrier 75 jours</SectionLabel>
+          <SectionLabel>Calendrier du challenge</SectionLabel>
           <div className="bg-card rounded-3xl shadow-[inset_0_0_0_0.5px_var(--border)] p-5">
             <CalendarGrid logs={myLogs} startDate={CHALLENGE_START_DATE} />
           </div>
