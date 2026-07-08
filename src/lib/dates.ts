@@ -9,21 +9,6 @@ export function today(): string {
   return toLocalDateStr(new Date());
 }
 
-export function formatDate(date: string): string {
-  return new Date(date + 'T00:00:00').toLocaleDateString('fr-FR', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  });
-}
-
-export function formatDateShort(date: string): string {
-  return new Date(date + 'T00:00:00').toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-  });
-}
-
 export function daysArray(startDate: string, count: number): string[] {
   const dates: string[] = [];
   const start = new Date(startDate + 'T00:00:00');

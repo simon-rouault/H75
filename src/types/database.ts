@@ -1,13 +1,3 @@
-export interface User {
-  id: string;
-  name: string;
-  emoji: string;
-  macro_targets: MacroTargets;
-  challenge_start_date: string;
-  challenge_extra_days: number;
-  created_at: string;
-}
-
 export interface MacroTargets {
   calories: number;
   protein: number;
@@ -33,14 +23,6 @@ export interface DailyLog {
   updated_at: string;
 }
 
-export interface WeightLog {
-  id: string;
-  user_id: string;
-  date: string;
-  weight_kg: number;
-  created_at: string;
-}
-
 export interface Meal {
   id: string;
   user_id: string;
@@ -53,28 +35,6 @@ export interface Meal {
   input_type: 'photo' | 'text' | 'voice';
   ai_raw_response: string | null;
   manually_adjusted: boolean;
-  created_at: string;
-}
-
-export interface Justification {
-  id: string;
-  user_id: string;
-  date: string;
-  category: string | null;
-  reason: string;
-  verdict: 'pending' | 'accepted' | 'rejected';
-  ai_explanation: string | null;
-  reviewed_by: string | null;
-  created_at: string;
-}
-
-export interface Streak {
-  id: string;
-  user_id: string;
-  start_date: string;
-  end_date: string | null;
-  length: number;
-  active: boolean;
   created_at: string;
 }
 

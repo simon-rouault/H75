@@ -1,19 +1,6 @@
 export const CHALLENGE_DAYS = 75;
 export const CHALLENGE_START_DATE = '2026-07-09'; // Day 1 = 9 July 2026 (fresh restart)
 
-export const USERS = {
-  simon: {
-    id: 'simon',
-    name: 'Simon',
-    emoji: '🦁',
-  },
-  emma: {
-    id: 'emma',
-    name: 'Emma',
-    emoji: '🦊',
-  },
-} as const;
-
 export const GOALS = {
   water_ml: { target: 3000, label: 'Eau', unit: 'ml', icon: '💧' },
   steps: { target: 10000, label: 'Pas', unit: 'pas', icon: '👟' },
@@ -21,11 +8,6 @@ export const GOALS = {
   stretching: { target: 1, label: 'Flex', unit: '', icon: '🧘' },
   reinforcement: { target: 1, label: 'Musique', unit: '', icon: '🎵' },
   pages: { target: 15, label: 'Lecture', unit: 'pages', icon: '📖' },
-} as const;
-
-export const MACRO_TARGETS = {
-  simon: { calories: 2500, protein: 180, carbs: 280, fat: 80 },
-  emma: { calories: 1800, protein: 130, carbs: 200, fat: 60 },
 } as const;
 
 export const WATER_INCREMENTS = [250, 500, 1000] as const;

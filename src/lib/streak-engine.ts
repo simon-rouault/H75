@@ -38,17 +38,6 @@ export function getCompletionPercentage(log: DailyLog, caloriesDone?: boolean): 
   return Math.round((completed / OBJECTIVE_COUNT) * 100);
 }
 
-export function getCompletedItems(log: DailyLog, caloriesDone?: boolean): Record<string, boolean> {
-  return {
-    water_ml: log.water_ml >= GOALS.water_ml.target,
-    steps: log.steps >= GOALS.steps.target,
-    workout: isWorkoutDone(log.workout_count),
-    stretching_renfo: log.stretching || log.reinforcement,
-    pages: log.pages >= GOALS.pages.target,
-    calories: caloriesDone ?? false,
-  };
-}
-
 export function getDayNumber(startDate: string, currentDate?: string): number {
   if (!currentDate) {
     currentDate = toLocalDateStr(new Date());
@@ -57,24 +46,4 @@ export function getDayNumber(startDate: string, currentDate?: string): number {
   const current = new Date(currentDate + 'T00:00:00');
   const diff = Math.floor((current.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
   return Math.max(diff + 1, 1);
-}
-
-export function getWeekWorkoutTotal(counts: number[]): number {
-  return counts.reduce((sum, c) => sum + c, 0);
-}
-
-export function getMonday(date: Date = new Date()): string {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  d.setDate(diff);
-  return toLocalDateStr(d);
-}
-
-export function getSunday(date: Date = new Date()): string {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() + (day === 0 ? 0 : 7 - day);
-  d.setDate(diff);
-  return toLocalDateStr(d);
 }
