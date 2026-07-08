@@ -80,15 +80,30 @@ function NotificationSettings() {
 
 export default function ProfilePage() {
   const { userId } = useUser();
-  const { profile, saveProfile } = useProfile(userId);
+  const { profile, loaded, saveProfile } = useProfile(userId);
   const router = useRouter();
   const [editProfile, setEditProfile] = useState<UserProfile>(profile);
   const [saved, setSaved] = useState(false);
+
+  // Once the saved profile is loaded from Supabase, populate the form with it so
+  // previously entered values show up after reopening the app or on another device.
+  useEffect(() => {
+    if (loaded) setEditProfile(profile);
+  }, [loaded, profile]);
 
   function handleSave() {
     saveProfile(editProfile);
     setSaved(true);
     setTimeout(() => router.back(), 400);
+  }
+
+  if (!loaded) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60dvh] gap-3">
+        <div className="w-7 h-7 border-2 border-accent/20 border-t-accent rounded-full animate-spin" />
+        <span className="text-[13px] text-muted">Chargement...</span>
+      </div>
+    );
   }
 
   return (

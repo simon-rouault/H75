@@ -11,7 +11,7 @@ import { GOALS, CHALLENGE_DAYS, CHALLENGE_START_DATE, WATER_INCREMENTS } from '@
 import { getDayNumber, getCompletionPercentage, getObjectiveCount, isWorkoutDone } from '@/lib/streak-engine';
 import { toLocalDateStr, today } from '@/lib/dates';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 // ─── Theme toggle ──────────────────────────────────────────────────────────────
@@ -244,105 +244,6 @@ const WORKOUT_TYPES = [
   { id: 'combat',   icon: '🥊', label: 'Combat' },
   { id: 'autre',    icon: '🧗', label: 'Autre' },
 ];
-
-// ─── Weight tracker row ────────────────────────────────────────────────────────
-
-function WeightRow({ userId }: { userId: string }) {
-  const [todayWeight, setTodayWeight] = useState<number | null>(null);
-  const [yesterdayWeight, setYesterdayWeight] = useState<number | null>(null);
-  const [input, setInput] = useState('');
-  const [saving, setSaving] = useState(false);
-  const todayStr = today();
-
-  useEffect(() => {
-    async function fetchWeights() {
-      const res = await fetch(`/api/weight?userId=${userId}&all=true`);
-      if (!res.ok) return;
-      const data: { date: string; weight_kg: number }[] = await res.json();
-      const yest = new Date(todayStr + 'T00:00:00');
-      yest.setDate(yest.getDate() - 1);
-      const yestStr = toLocalDateStr(yest);
-      setTodayWeight(data.find(d => d.date === todayStr)?.weight_kg ?? null);
-      setYesterdayWeight(data.find(d => d.date === yestStr)?.weight_kg ?? null);
-    }
-    fetchWeights();
-  }, [userId, todayStr]);
-
-  async function save() {
-    const kg = parseFloat(input);
-    if (isNaN(kg) || kg < 20 || kg > 300) return;
-    setSaving(true);
-    const res = await fetch('/api/weight', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, date: todayStr, weight_kg: kg }),
-    });
-    if (res.ok) { setTodayWeight(kg); setInput(''); }
-    setSaving(false);
-  }
-
-  const diff = todayWeight !== null && yesterdayWeight !== null ? todayWeight - yesterdayWeight : null;
-  const diffColor = diff === null ? '' : diff > 0 ? 'text-red' : diff < 0 ? 'text-green' : 'text-muted/40';
-  const arrow = diff === null ? '' : diff > 0 ? '↑' : diff < 0 ? '↓' : '=';
-
-  return (
-    <HabitRow
-      icon="⚖️"
-      label="Poids"
-      done={todayWeight !== null}
-      valueNode={
-        todayWeight !== null ? (
-          <div className="flex items-center gap-1.5">
-            <span className="font-[family-name:var(--font-jetbrains-mono)] text-[14px] font-bold">{todayWeight} kg</span>
-            {diff !== null && (
-              <span className={`text-[12px] font-semibold ${diffColor}`}>{arrow} {Math.abs(diff).toFixed(1)}</span>
-            )}
-          </div>
-        ) : undefined
-      }
-      initialOpen={todayWeight === null}
-    >
-      <div className="flex gap-2 pt-1">
-        <input
-          type="number" step="0.1"
-          placeholder={todayWeight !== null ? `${todayWeight} kg` : 'Ex: 75.5'}
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && save()}
-          className="flex-1 h-10 px-3 rounded-xl bg-foreground/[0.05] shadow-[inset_0_0_0_0.5px_var(--border)] text-[14px] outline-none focus:shadow-[inset_0_0_0_1px_rgba(255,107,44,0.30)] transition-all placeholder:text-muted/30"
-        />
-        <Button size="sm" onClick={save} disabled={saving || !input}>
-          {saving ? '...' : 'Sauver'}
-        </Button>
-      </div>
-    </HabitRow>
-  );
-}
-
-// ─── Daily Note row ────────────────────────────────────────────────────────────
-
-function NoteRow({ note, onSave }: { note: string | null; onSave: (v: string) => void }) {
-  const [value, setValue] = useState(note ?? '');
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleChange = useCallback((v: string) => {
-    setValue(v);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => onSave(v), 500);
-  }, [onSave]);
-
-  return (
-    <HabitRow icon="✏️" label="Note du jour" done={!!value} noExpand>
-      <textarea
-        value={value}
-        onChange={e => handleChange(e.target.value)}
-        placeholder="Comment s'est passée ta journée ?"
-        rows={3}
-        className="w-full px-3 py-2.5 rounded-xl bg-foreground/[0.04] shadow-[inset_0_0_0_0.5px_var(--separator)] text-[14px] outline-none focus:shadow-[inset_0_0_0_1px_rgba(255,107,44,0.25)] transition-all resize-none placeholder:text-muted/25 leading-relaxed"
-      />
-    </HabitRow>
-  );
-}
 
 // ─── Completion overlay ────────────────────────────────────────────────────────
 
@@ -743,15 +644,6 @@ export default function DashboardPage() {
             </div>
           </HabitRow>
 
-        </HabitGroup>
-      </div>
-
-      {/* ── Suivi group ── */}
-      <div className="animate-fade-up delay-5">
-        <SectionLabel>Suivi</SectionLabel>
-        <HabitGroup>
-          <WeightRow userId={userId} />
-          <NoteRow note={log.note} onSave={v => updateField('note', v || null)} />
         </HabitGroup>
       </div>
 
