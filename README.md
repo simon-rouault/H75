@@ -1,4 +1,4 @@
-# 75 Jours
+# H75
 
 PWA de challenge d'habitudes pour deux personnes (Simon & Emma). L'objectif :
 enchaîner **75 jours d'affilée** en validant chaque jour ses objectifs. Un jour

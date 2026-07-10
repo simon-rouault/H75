@@ -35,12 +35,9 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="mb-12 text-center animate-fade-up">
           <div className="text-[11px] font-semibold text-muted tracking-[0.28em] uppercase mb-4">Challenge</div>
-          <h1 className="font-[family-name:var(--font-dela-gothic)] text-[72px] gradient-text leading-none">
-            75
+          <h1 className="font-[family-name:var(--font-dela-gothic)] text-[80px] gradient-text leading-none tracking-tight">
+            H75
           </h1>
-          <div className="text-[22px] font-[family-name:var(--font-dela-gothic)] text-foreground/50 tracking-[0.2em] uppercase mt-1">
-            Jours
-          </div>
           <div className="mt-5 w-12 h-[1px] bg-gradient-to-r from-transparent via-accent/40 to-transparent mx-auto" />
         </div>
 

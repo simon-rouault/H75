@@ -1,4 +1,4 @@
-# 🎨 DESIGN — 75 Jours
+# 🎨 DESIGN — H75
 
 Référence unique de la direction artistique. On modifie ce doc **et** le code
 ensemble : ce fichier décrit l'intention, [globals.css](src/app/globals.css) et

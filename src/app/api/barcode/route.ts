@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}?fields=product_name,product_name_fr,nutriments,image_front_small_url`;
 
   const res = await fetch(url, {
-    headers: { 'User-Agent': '75Jours/1.0 (contact@75jours.app)' },
+    headers: { 'User-Agent': 'H75/1.0 (contact@h75.app)' },
     next: { revalidate: 3600 },
   });
 

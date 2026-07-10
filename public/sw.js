@@ -1,4 +1,4 @@
-const CACHE_NAME = '75-jours-v5';
+const CACHE_NAME = 'h75-v6';
 const STATIC_ASSETS = ['/', '/dashboard', '/food', '/stats'];
 
 self.addEventListener('install', (event) => {
@@ -51,10 +51,10 @@ function scheduleReminder(reminderTime) {
   if (delay < 0) delay += 24 * 60 * 60 * 1000; // tomorrow
 
   reminderTimeout = setTimeout(() => {
-    self.registration.showNotification('75 Jours 🔥', {
+    self.registration.showNotification('H75 🔥', {
       body: 'As-tu complété tous tes objectifs du jour ?',
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
+      icon: '/h75-192.png',
+      badge: '/h75-192.png',
       tag: 'daily-reminder',
     });
     // Re-schedule for next day

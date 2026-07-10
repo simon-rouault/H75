@@ -19,12 +19,12 @@ const delaGothic = Dela_Gothic_One({
 });
 
 export const metadata: Metadata = {
-  title: "75 Jours Challenge",
-  description: "Challenge 75 jours — Simon & Emma",
+  title: "H75",
+  description: "H75 — challenge d'habitudes de Simon & Emma",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "75 Jours",
+    title: "H75",
   },
 };
 
@@ -44,7 +44,7 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning>
       <head>
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/h75-touch.png" />
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{if(localStorage.getItem('75j-theme')==='light')document.documentElement.classList.add('light')}catch(e){}})()` }} />
       </head>
       <body

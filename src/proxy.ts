@@ -24,5 +24,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|icon-.*\\.png).*)'],
+  // Exclude Next internals and public static assets (images/icons) from auth.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.svg$|.*\\.ico$).*)'],
 };
