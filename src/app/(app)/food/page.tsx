@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { useUser } from '@/hooks/useUser';
 import { useMeals, useMealHistory } from '@/hooks/useMeals';
 import { useProfile } from '@/hooks/useProfile';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
+import { useFavorites, type FavMeal } from '@/hooks/useFavorites';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
@@ -31,8 +32,6 @@ interface BarcodeProduct {
   fat_per_100g: number;
   image_url: string | null;
 }
-
-interface FavMeal { name: string; calories: number; protein: number; carbs: number; fat: number }
 
 const HISTORY_DAYS_LIMIT = 3; // nb de jours d'historique affichés (évite un scroll infini)
 
@@ -197,20 +196,9 @@ export default function FoodPage() {
   const [barcodeError, setBarcodeError] = useState<string | null>(null);
   const [barcodeGrams, setBarcodeGrams] = useState('100');
 
-  // Favoris (localStorage, par utilisateur)
-  const [favorites, setFavorites] = useState<FavMeal[]>([]);
-  useEffect(() => {
-    try { const s = localStorage.getItem(`h75-fav-${userId}`); if (s) setFavorites(JSON.parse(s)); } catch { /* ignore */ }
-  }, [userId]);
-  function persistFavorites(next: FavMeal[]) {
-    setFavorites(next);
-    try { localStorage.setItem(`h75-fav-${userId}`, JSON.stringify(next)); } catch { /* ignore */ }
-  }
-  const isFavorite = (name: string) => favorites.some(f => f.name === name);
-  function toggleFavorite(m: FavMeal) {
-    if (isFavorite(m.name)) persistFavorites(favorites.filter(f => f.name !== m.name));
-    else persistFavorites([{ name: m.name, calories: m.calories, protein: m.protein, carbs: m.carbs, fat: m.fat }, ...favorites]);
-  }
+  // Favoris synchronisés par compte (Supabase)
+  const { favorites, isFavorite, toggleFavorite } = useFavorites(userId);
+
   async function addFavoriteMeal(fav: FavMeal) {
     if (addingRecent) return;
     setAddingRecent(fav.name);
