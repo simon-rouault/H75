@@ -16,7 +16,7 @@ export function BottomNav() {
     <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden">
       <div className="h-px bg-[var(--separator)]" />
       <div className="bg-card/95" style={{ backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}>
-        <div className="max-w-[420px] mx-auto flex justify-around py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        <div className="max-w-[420px] mx-auto flex justify-around pt-2.5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           {NAV_ITEMS.map((item) => {
             const active = pathname === item.href;
             const Icon = item.icon;
@@ -24,7 +24,7 @@ export function BottomNav() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`relative flex flex-col items-center gap-[3px] px-5 py-2 transition-colors duration-200 ${
+                className={`relative flex flex-col items-center gap-[4px] px-6 py-2 min-w-[76px] transition-colors duration-200 active:scale-95 ${
                   active ? 'text-accent' : 'text-muted/45'
                 }`}
               >

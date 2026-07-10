@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { input_type, text, image_base64, image_media_type } = body;
+    const { input_type, text, image_base64, image_media_type, audio_base64, audio_media_type } = body;
 
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
@@ -48,6 +48,17 @@ export async function POST(request: NextRequest) {
           },
         },
         'Analyse cette photo de nourriture et estime les macronutriments.',
+      ]);
+    } else if (audio_base64) {
+      result = await model.generateContent([
+        SYSTEM_PROMPT,
+        {
+          inlineData: {
+            mimeType: audio_media_type || 'audio/webm',
+            data: audio_base64,
+          },
+        },
+        "Cet audio décrit un repas ou un aliment, en français. Transcris-le puis estime les macronutriments du repas décrit.",
       ]);
     } else if (text) {
       result = await model.generateContent([

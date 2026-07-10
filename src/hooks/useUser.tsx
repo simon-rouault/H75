@@ -5,7 +5,7 @@ import { createContext, useContext, ReactNode } from 'react';
 interface UserContextType {
   userId: string;
   userName: string;
-  userEmoji: string;
+  userInitial: string;
   isSimon: boolean;
   isEmma: boolean;
 }
@@ -17,7 +17,7 @@ export function UserProvider({ userId, children }: { userId: string; children: R
   const value: UserContextType = {
     userId,
     userName: isSimon ? 'Simon' : 'Emma',
-    userEmoji: isSimon ? '🦁' : '🦊',
+    userInitial: isSimon ? 'S' : 'E',
     isSimon,
     isEmma: !isSimon,
   };

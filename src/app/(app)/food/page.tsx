@@ -5,9 +5,10 @@ import Link from 'next/link';
 import { useUser } from '@/hooks/useUser';
 import { useMeals, useMealHistory } from '@/hooks/useMeals';
 import { useProfile } from '@/hooks/useProfile';
-import { useVoiceInput } from '@/hooks/useVoiceInput';
+import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/Button';
+import { Icon } from '@/components/ui/Icon';
 import { today } from '@/lib/dates';
 import type { Meal } from '@/types/database';
 
@@ -29,6 +30,33 @@ interface BarcodeProduct {
   carbs_per_100g: number;
   fat_per_100g: number;
   image_url: string | null;
+}
+
+/* ─── Compression image côté client (évite la limite de payload ~4.5 Mo) ─── */
+async function compressImage(file: File, maxDim = 1280, quality = 0.82): Promise<string> {
+  // createImageBitmap respecte l'orientation EXIF des photos de téléphone.
+  const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' }).catch(() => null);
+  let width: number, height: number;
+  let source: CanvasImageSource;
+  if (bitmap) {
+    width = bitmap.width; height = bitmap.height; source = bitmap;
+  } else {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = URL.createObjectURL(file);
+    });
+    width = img.naturalWidth; height = img.naturalHeight; source = img;
+  }
+  const scale = Math.min(1, maxDim / Math.max(width, height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(width * scale);
+  canvas.height = Math.round(height * scale);
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+  const dataUrl = canvas.toDataURL('image/jpeg', quality);
+  return dataUrl.split(',')[1];
 }
 
 /* ─── SVG Ring Chart ─── */
@@ -153,7 +181,7 @@ export default function FoodPage() {
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const barcodeFileRef = useRef<HTMLInputElement>(null);
-  const { transcript, listening, start: startVoice, stop: stopVoice } = useVoiceInput();
+  const { recording, supported: voiceSupported, start: startRec, stop: stopRec } = useAudioRecorder();
 
   const [addingRecent, setAddingRecent] = useState<string | null>(null);
   const [justAdded, setJustAdded] = useState<string | null>(null);
@@ -193,13 +221,20 @@ export default function FoodPage() {
     }
   }
 
-  async function analyzeFood(input_type: InputMode, text?: string, image_base64?: string, image_media_type?: string) {
+  async function analyzeFood(
+    input_type: InputMode,
+    text?: string,
+    image_base64?: string,
+    image_media_type?: string,
+    audio_base64?: string,
+    audio_media_type?: string,
+  ) {
     setAnalyzing(true);
     try {
       const res = await fetch('/api/food-analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input_type, text, image_base64, image_media_type }),
+        body: JSON.stringify({ input_type, text, image_base64, image_media_type, audio_base64, audio_media_type }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -217,20 +252,23 @@ export default function FoodPage() {
     analyzeFood('text', textInput);
   }
 
-  function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = (reader.result as string).split(',')[1];
-      analyzeFood('photo', undefined, base64, file.type);
-    };
-    reader.readAsDataURL(file);
+    try {
+      const base64 = await compressImage(file, 1280, 0.82);
+      analyzeFood('photo', undefined, base64, 'image/jpeg');
+    } catch {
+      alert("Impossible de lire cette photo.");
+    } finally {
+      e.target.value = '';
+    }
   }
 
-  function handleVoiceSubmit() {
-    if (!transcript.trim()) return;
-    analyzeFood('voice', transcript);
+  async function handleStopVoice() {
+    const audio = await stopRec();
+    if (!audio) return;
+    analyzeFood('voice', undefined, undefined, undefined, audio.base64, audio.mimeType);
   }
 
   async function lookupBarcode(code: string) {
@@ -254,21 +292,37 @@ export default function FoodPage() {
   async function handleBarcodeImage(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Try BarcodeDetector API first
-    if ('BarcodeDetector' in window) {
+    setBarcodeError(null);
+    setBarcodeLoading(true);
+    try {
+      // 1) BarcodeDetector natif (Android / Chrome)
+      if ('BarcodeDetector' in window) {
+        try {
+          const img = await createImageBitmap(file);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const detector = new (window as any).BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'] });
+          const barcodes = await detector.detect(img);
+          if (barcodes.length > 0) { await lookupBarcode(barcodes[0].rawValue); return; }
+        } catch { /* fallback zxing */ }
+      }
+      // 2) Fallback zxing — marche sur iOS Safari (décode l'image capturée)
+      const { BrowserMultiFormatReader } = await import('@zxing/library');
+      const reader = new BrowserMultiFormatReader();
+      const url = URL.createObjectURL(file);
       try {
-        const img = await createImageBitmap(file);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const detector = new (window as any).BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'] });
-        const barcodes = await detector.detect(img);
-        if (barcodes.length > 0) {
-          setBarcodeInput(barcodes[0].rawValue);
-          lookupBarcode(barcodes[0].rawValue);
-          return;
-        }
-      } catch { /* fallback */ }
+        const result = await reader.decodeFromImageUrl(url);
+        const code = result?.getText();
+        if (code) { await lookupBarcode(code); return; }
+        setBarcodeError('Aucun code-barre détecté. Entre-le manuellement.');
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    } catch {
+      setBarcodeError('Impossible de lire le code-barre. Entre-le manuellement.');
+    } finally {
+      setBarcodeLoading(false);
+      e.target.value = '';
     }
-    setBarcodeError('Impossible de lire le code-barre. Entre-le manuellement.');
   }
 
   async function saveBarcodeResult() {
@@ -316,29 +370,29 @@ export default function FoodPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       <PageHeader title="Repas" subtitle="Suivi nutritionnel" />
 
       {/* ═══════ HERO MACROS ═══════ */}
-      <div className="relative bg-card rounded-3xl border border-border p-6 overflow-hidden">
+      <div className="relative bg-card rounded-3xl border border-border p-5 overflow-hidden">
         {/* Subtle ambient glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-accent/[0.06] rounded-full blur-[60px] pointer-events-none" />
 
         {/* Settings button */}
         <Link
           href="/profile"
-          className="absolute top-4 right-4 z-10 w-8 h-8 rounded-lg bg-foreground/[0.04] hover:bg-foreground/[0.08] flex items-center justify-center text-muted/40 hover:text-muted transition-all duration-200 text-[13px]"
+          className="absolute top-4 right-4 z-10 w-8 h-8 rounded-lg bg-foreground/[0.04] hover:bg-foreground/[0.08] flex items-center justify-center text-muted/50 hover:text-muted transition-all duration-200"
         >
-          ⚙
+          <Icon name="settings" size={16} />
         </Link>
 
         {/* Calorie ring centered */}
-        <div className="flex justify-center mb-6">
+        <div className="flex justify-center mb-5">
           <CalorieRing value={totals.calories} target={targets.calories} />
         </div>
 
         {/* Macro bars */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           <MacroBar label="Protéines" value={totals.protein} target={targets.protein} color="bg-blue" icon="P" />
           <MacroBar label="Glucides" value={totals.carbs} target={targets.carbs} color="bg-yellow" icon="G" />
           <MacroBar label="Lipides" value={totals.fat} target={targets.fat} color="bg-red" icon="L" />
@@ -353,14 +407,17 @@ export default function FoodPage() {
             className="absolute top-1 bottom-1 rounded-xl bg-accent transition-all duration-300 ease-out shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_-4px_var(--glow-strong)]"
             style={{ left: `calc(${modeIndex * 25}% + 4px)`, width: 'calc(25% - 6px)' }}
           />
-          {(['text', 'photo', 'voice', 'barcode'] as const).map((m) => (
-            <button key={m} onClick={() => setMode(m)}
-              className={`relative z-10 flex-1 py-2.5 rounded-xl text-[12px] font-semibold transition-colors duration-300 ${
-                mode === m ? 'text-white' : 'text-muted/50 hover:text-muted/80'
-              }`}>
-              {m === 'text' ? '✎ Texte' : m === 'photo' ? '📷 Photo' : m === 'voice' ? '🎤 Voix' : '🔲 Scan'}
-            </button>
-          ))}
+          {(['text', 'photo', 'voice', 'barcode'] as const).map((m) => {
+            const cfg = { text: ['pencil', 'Texte'], photo: ['camera', 'Photo'], voice: ['mic', 'Voix'], barcode: ['barcode', 'Scan'] } as const;
+            return (
+              <button key={m} onClick={() => setMode(m)}
+                className={`relative z-10 flex-1 py-2.5 rounded-xl text-[12px] font-semibold transition-colors duration-300 inline-flex items-center justify-center gap-1.5 ${
+                  mode === m ? 'text-white' : 'text-muted/50 hover:text-muted/80'
+                }`}>
+                <Icon name={cfg[m][0]} size={14} stroke={2} /> {cfg[m][1]}
+              </button>
+            );
+          })}
         </div>
 
         {/* Input card */}
@@ -406,7 +463,7 @@ export default function FoodPage() {
                   </>
                 ) : (
                   <>
-                    <span className="text-3xl opacity-40">📷</span>
+                    <Icon name="camera" size={26} className="opacity-40" />
                     <span className="text-[13px] font-medium">Prendre ou choisir une photo</span>
                   </>
                 )}
@@ -415,42 +472,34 @@ export default function FoodPage() {
           )}
 
           {mode === 'voice' && (
-            <div className="space-y-4">
-              <div className="flex flex-col items-center py-4">
-                {listening ? (
-                  <div className="space-y-4 flex flex-col items-center">
-                    <div className="relative">
-                      <div className="absolute inset-0 w-20 h-20 rounded-full bg-red/20 animate-breathe" />
-                      <div className="relative w-20 h-20 rounded-full bg-red/10 border border-red/20 flex items-center justify-center">
-                        <div className="w-5 h-5 rounded-full bg-red animate-breathe" />
-                      </div>
-                    </div>
-                    <p className="text-[13px] text-muted/60 font-medium">Écoute en cours...</p>
-                    <Button size="sm" variant="danger" onClick={stopVoice}>Arrêter</Button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={startVoice}
-                    disabled={analyzing}
-                    className="w-20 h-20 rounded-full bg-foreground/[0.04] border border-border hover:border-accent/30 flex items-center justify-center transition-all duration-300 hover:bg-accent-soft active:scale-95 disabled:opacity-20"
-                  >
-                    <span className="text-2xl opacity-50">🎙</span>
-                  </button>
-                )}
-              </div>
-              {transcript && (
-                <div className="space-y-3">
-                  <div className="bg-foreground/[0.03] rounded-xl p-4 text-[14px] border border-border/40 italic text-muted/80 leading-relaxed">
-                    &ldquo;{transcript}&rdquo;
-                  </div>
-                  <button
-                    onClick={handleVoiceSubmit}
-                    disabled={analyzing}
-                    className="w-full py-3 rounded-xl font-semibold text-[14px] bg-gradient-to-r from-accent to-accent-hover text-white transition-all duration-200 active:scale-[0.97] disabled:opacity-20 shadow-[0_2px_16px_-4px_var(--glow-strong)]"
-                  >
-                    {analyzing ? 'Analyse en cours...' : 'Analyser'}
-                  </button>
+            <div className="flex flex-col items-center py-4 gap-4">
+              {analyzing ? (
+                <div className="flex flex-col items-center gap-3 py-2">
+                  <span className="w-8 h-8 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+                  <span className="text-[13px] text-muted/60 font-medium">Analyse en cours...</span>
                 </div>
+              ) : recording ? (
+                <>
+                  <button onClick={handleStopVoice} className="relative w-20 h-20 flex items-center justify-center active:scale-95 transition-transform">
+                    <span className="absolute inset-0 rounded-full bg-red/20 animate-breathe" />
+                    <span className="relative w-20 h-20 rounded-full bg-red/10 border border-red/25 flex items-center justify-center text-red">
+                      <span className="w-6 h-6 rounded-md bg-red" />
+                    </span>
+                  </button>
+                  <p className="text-[13px] text-muted/60 font-medium">Décris ton repas… appuie pour arrêter</p>
+                </>
+              ) : voiceSupported ? (
+                <>
+                  <button
+                    onClick={startRec}
+                    className="w-20 h-20 rounded-full bg-foreground/[0.04] border border-border hover:border-accent/30 flex items-center justify-center text-muted transition-all duration-300 hover:bg-accent-soft active:scale-95"
+                  >
+                    <Icon name="mic" size={26} />
+                  </button>
+                  <p className="text-[13px] text-muted/50 font-medium">Appuie et décris ton repas à voix haute</p>
+                </>
+              ) : (
+                <p className="text-[13px] text-muted/60 text-center py-4">Le micro n&apos;est pas disponible sur cet appareil. Utilise le mode Texte.</p>
               )}
             </div>
           )}
@@ -460,7 +509,7 @@ export default function FoodPage() {
               <input ref={barcodeFileRef} type="file" accept="image/*" capture="environment" onChange={handleBarcodeImage} className="hidden" />
               <button onClick={() => barcodeFileRef.current?.click()} disabled={barcodeLoading}
                 className="w-full py-7 rounded-xl border-2 border-dashed border-[var(--border)] hover:border-accent/30 text-muted hover:text-foreground transition-all flex flex-col items-center gap-2 disabled:opacity-30">
-                <span className="text-2xl opacity-50">🔲</span>
+                <Icon name="barcode" size={26} className="opacity-60" />
                 <span className="text-[13px] font-medium">Scanner un code-barre</span>
               </button>
 
@@ -516,9 +565,9 @@ export default function FoodPage() {
             <div className="flex items-center justify-between px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-4">
               <button
                 onClick={() => setAiResult(null)}
-                className="text-muted hover:text-foreground transition-colors w-9 h-9 flex items-center justify-center rounded-xl hover:bg-foreground/[0.06] text-sm"
+                className="text-muted hover:text-foreground transition-colors w-9 h-9 flex items-center justify-center rounded-xl hover:bg-foreground/[0.06]"
               >
-                ←
+                <Icon name="arrow-left" size={18} />
               </button>
               <h2 className="text-[15px] font-bold">Résultat de l&apos;analyse</h2>
               <div className="w-9" />
@@ -571,7 +620,7 @@ export default function FoodPage() {
                     </span>
                   ) : (
                     <>
-                      <span className="text-[20px]">✓</span> Enregistrer le repas
+                      <Icon name="check" size={19} stroke={2.4} /> Enregistrer le repas
                     </>
                   )}
                 </button>
@@ -603,8 +652,8 @@ export default function FoodPage() {
                 className="bg-card border border-border rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 hover:border-border/80 group"
               >
                 {/* Input type icon */}
-                <div className="w-9 h-9 rounded-xl bg-foreground/[0.04] flex items-center justify-center text-sm text-muted/40 flex-shrink-0">
-                  {meal.input_type === 'photo' ? '📷' : meal.input_type === 'voice' ? '🎤' : '✏️'}
+                <div className="w-9 h-9 rounded-xl bg-foreground/[0.04] flex items-center justify-center text-muted/50 flex-shrink-0">
+                  <Icon name={meal.input_type === 'photo' ? 'camera' : meal.input_type === 'voice' ? 'mic' : 'pencil'} size={16} />
                 </div>
                 {/* Content */}
                 <div className="flex-1 min-w-0">
@@ -650,16 +699,16 @@ export default function FoodPage() {
                           : 'text-muted/20 hover:text-accent hover:bg-accent/8'
                     }`}
                   >
-                    {justAdded === meal.id ? '✓' : addingRecent === meal.id ? (
+                    {justAdded === meal.id ? <Icon name="check" size={15} stroke={2.4} /> : addingRecent === meal.id ? (
                       <span className="w-3 h-3 border-[1.5px] border-accent/30 border-t-accent rounded-full animate-spin" />
-                    ) : '+'}
+                    ) : <Icon name="plus" size={15} stroke={2.2} />}
                   </button>
                   {/* Delete */}
                   <button
                     onClick={() => deleteMeal(meal.id)}
-                    className="text-muted/20 hover:text-red transition-all w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red/8 text-[12px]"
+                    className="text-muted/20 hover:text-red transition-all w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red/8"
                   >
-                    ✕
+                    <Icon name="x" size={15} stroke={2.2} />
                   </button>
                 </div>
               </div>
@@ -678,8 +727,8 @@ export default function FoodPage() {
             <span className="text-accent/70 text-sm">◆</span>
             <span className="text-[11px] font-bold text-accent/60 uppercase tracking-[0.12em]">Historique</span>
             <div className="flex-1 h-[1px] bg-gradient-to-r from-accent/10 to-transparent" />
-            <span className="text-[11px] text-muted/30 font-medium group-hover:text-muted transition-colors">
-              {showHistory ? '▲' : '▼'}
+            <span className={`text-muted/40 group-hover:text-muted transition-all ${showHistory ? 'rotate-180' : ''}`}>
+              <Icon name="chevron-down" size={15} />
             </span>
           </button>
           {showHistory && (

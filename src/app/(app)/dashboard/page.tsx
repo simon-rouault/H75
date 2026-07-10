@@ -7,6 +7,7 @@ import { useMeals } from '@/hooks/useMeals';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { Button } from '@/components/ui/Button';
+import { Icon, Monogram, type IconName } from '@/components/ui/Icon';
 import { GOALS, CHALLENGE_DAYS, CHALLENGE_START_DATE, WATER_INCREMENTS } from '@/lib/constants';
 import { getDayNumber, getCompletionPercentage, getObjectiveCount, isWorkoutDone } from '@/lib/streak-engine';
 import { toLocalDateStr, today } from '@/lib/dates';
@@ -26,9 +27,9 @@ function ThemeToggle() {
     localStorage.setItem('75j-theme', isLight ? 'light' : 'dark');
   }
   return (
-    <button onClick={toggle}
-      className="w-9 h-9 flex items-center justify-center rounded-2xl bg-card shadow-[inset_0_0_0_0.5px_var(--border)] transition-all text-sm active:scale-95">
-      {light ? '🌙' : '☀️'}
+    <button onClick={toggle} aria-label="Changer de thème"
+      className="w-9 h-9 flex items-center justify-center rounded-2xl bg-card text-muted shadow-[inset_0_0_0_0.5px_var(--border)] transition-all active:scale-95">
+      <Icon name={light ? 'moon' : 'sun'} size={17} />
     </button>
   );
 }
@@ -74,7 +75,7 @@ function HabitGroup({ children }: { children: React.ReactNode }) {
 function HabitRow({
   icon, label, done, valueNode, children, noExpand, initialOpen,
 }: {
-  icon: string; label: string; done?: boolean;
+  icon: IconName; label: string; done?: boolean;
   valueNode?: React.ReactNode;
   children?: React.ReactNode;
   noExpand?: boolean;
@@ -90,11 +91,11 @@ function HabitRow({
         className={`flex items-center gap-3.5 px-5 py-[15px] transition-colors ${expandable ? 'cursor-pointer active:bg-foreground/[0.03]' : ''}`}
       >
         <div className={`w-10 h-10 rounded-[14px] flex items-center justify-center shrink-0 transition-all duration-300 ${
-          done ? 'bg-green/[0.15] text-green' : 'bg-foreground/[0.07]'
+          done ? 'bg-green/[0.15] text-green' : 'bg-foreground/[0.06] text-muted'
         }`}>
           {done
-            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-            : <span className="text-[17px]">{icon}</span>
+            ? <Icon name="check" size={17} stroke={2.4} />
+            : <Icon name={icon} size={18} />
           }
         </div>
         <span className="flex-1 text-[15px] font-medium leading-tight">{label}</span>
@@ -197,39 +198,31 @@ function StreakBattle() {
 
   const leading = simonStreak > emmaStreak ? 'simon' : emmaStreak > simonStreak ? 'emma' : null;
 
-  return (
-    <div className="bg-card rounded-3xl shadow-[inset_0_0_0_0.5px_color-mix(in srgb,var(--accent) 18%,transparent),0_0_40px_-8px_var(--glow-strong)] overflow-hidden animate-fade-up delay-3">
-      <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-accent/35 to-transparent" />
-      <div className="p-5">
-        <div className="text-[10px] font-bold text-accent/70 uppercase tracking-[0.22em] text-center mb-4">Streak Battle</div>
-        <div className="flex items-center justify-center gap-6">
-          {[
-            { id: 'simon', emoji: '🦁', streak: simonStreak },
-            { id: 'emma',  emoji: '🦊', streak: emmaStreak },
-          ].reduce<React.ReactNode[]>((acc, u, i) => {
-            const isLeading = leading === u.id;
-            const el = (
-              <div key={u.id} className="flex flex-col items-center gap-2">
-                <span className="text-[36px]">{isLeading ? '👑' : u.emoji}</span>
-                <span className={`font-[family-name:var(--font-jetbrains-mono)] text-[46px] font-bold tabular-nums leading-none ${isLeading ? 'gradient-text' : 'text-foreground/50'}`}>
-                  {u.streak}
-                </span>
-                <span className="text-[10px] text-muted/50 font-semibold tracking-wider uppercase">{u.id}</span>
-              </div>
-            );
-            if (i === 0) return [el];
-            return [...acc, (
-              <div key="vs" className="flex flex-col items-center gap-1.5 px-2">
-                <div className="w-px h-6 bg-gradient-to-b from-transparent via-accent/20 to-transparent" />
-                <div className="w-8 h-8 rounded-full border border-accent/20 flex items-center justify-center">
-                  <span className="text-[9px] font-bold text-accent/60 tracking-widest">VS</span>
-                </div>
-                <div className="w-px h-6 bg-gradient-to-b from-transparent via-accent/20 to-transparent" />
-              </div>
-            ), el];
-          }, [])}
+  const Side = ({ id, name, streak, align }: { id: string; name: string; streak: number; align: 'left' | 'right' }) => {
+    const isLeading = leading === id;
+    return (
+      <div className={`flex items-center gap-2.5 flex-1 ${align === 'right' ? 'flex-row-reverse text-right' : ''}`}>
+        <div className="relative">
+          <Monogram name={name} size={34} />
+          {isLeading && (
+            <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-accent"><Icon name="crown" size={13} fill /></span>
+          )}
+        </div>
+        <div className={align === 'right' ? 'items-end flex flex-col' : ''}>
+          <span className="text-[11px] text-muted/60 font-medium leading-none mb-1">{name}</span>
+          <span className={`font-[family-name:var(--font-jetbrains-mono)] text-[22px] font-bold tabular-nums leading-none ${isLeading ? 'text-accent' : 'text-foreground/50'}`}>{streak}</span>
         </div>
       </div>
+    );
+  };
+
+  return (
+    <div className="bg-card rounded-3xl shadow-[inset_0_0_0_0.5px_var(--border)] px-4 py-3.5 flex items-center gap-3 animate-fade-up delay-3">
+      <Side id="simon" name="Simon" streak={simonStreak} align="left" />
+      <div className="flex flex-col items-center shrink-0">
+        <span className="text-[8px] font-bold text-muted/40 tracking-[0.18em]">VS</span>
+      </div>
+      <Side id="emma" name="Emma" streak={emmaStreak} align="right" />
     </div>
   );
 }
@@ -237,12 +230,12 @@ function StreakBattle() {
 // ─── Workout types ─────────────────────────────────────────────────────────────
 
 const WORKOUT_TYPES = [
-  { id: 'natation', icon: '🏊', label: 'Natation' },
-  { id: 'course',   icon: '🏃', label: 'Course' },
-  { id: 'salle',    icon: '🏋️', label: 'Salle' },
-  { id: 'velo',     icon: '🚴', label: 'Vélo' },
-  { id: 'combat',   icon: '🥊', label: 'Combat' },
-  { id: 'autre',    icon: '🧗', label: 'Autre' },
+  { id: 'natation', label: 'Natation' },
+  { id: 'course',   label: 'Course' },
+  { id: 'salle',    label: 'Salle' },
+  { id: 'velo',     label: 'Vélo' },
+  { id: 'combat',   label: 'Combat' },
+  { id: 'autre',    label: 'Autre' },
 ];
 
 // ─── Completion overlay ────────────────────────────────────────────────────────
@@ -253,12 +246,12 @@ function CompletionOverlay({ show, onClose, streak }: { show: boolean; onClose: 
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center px-6 animate-fade-in"
       style={{ background: 'rgba(0,0,0,0.90)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}
       onClick={onClose}>
-      <div className="text-[96px] mb-4 animate-bounce-in">🔥</div>
-      <h2 className="font-[family-name:var(--font-playfair)] text-[26px] gradient-text mb-2 text-center">Journée parfaite !</h2>
+      <div className="mb-5 animate-bounce-in text-accent"><Icon name="flame" size={84} fill stroke={1} /></div>
+      <h2 className="font-[family-name:var(--font-playfair)] text-[30px] gradient-text mb-2 text-center">Journée parfaite</h2>
       <p className="text-muted text-[14px] text-center mb-7">Tous les objectifs sont complétés.</p>
       {streak > 0 && (
         <div className="flex items-center gap-4 px-8 py-5 rounded-3xl bg-accent/[0.08] shadow-[inset_0_0_0_0.5px_color-mix(in srgb,var(--accent) 20%,transparent)] mb-6">
-          <span className="text-3xl">🔥</span>
+          <span className="text-accent"><Icon name="flame" size={30} fill stroke={1} /></span>
           <div>
             <div className="font-[family-name:var(--font-jetbrains-mono)] text-[44px] font-bold gradient-text leading-none">{streak}</div>
             <div className="text-[11px] text-muted/70 mt-1">jours de streak</div>
@@ -295,14 +288,14 @@ function SuccessOverlay({ show, onClose, streak }: { show: boolean; onClose: () 
         );
       })}
       <div className="relative flex flex-col items-center">
-        <div className="text-[104px] mb-2 animate-bounce-in">🏆</div>
+        <div className="mb-4 animate-bounce-in text-accent"><Icon name="trophy" size={92} stroke={1.2} /></div>
         <div className="text-[11px] font-bold text-accent/70 uppercase tracking-[0.28em] mb-2">Défi réussi</div>
         <h2 className="font-[family-name:var(--font-playfair)] text-[32px] gradient-text mb-3 text-center leading-tight">75 jours d&apos;affilée&nbsp;!</h2>
         <p className="text-muted text-[14px] text-center mb-7 max-w-[300px]">
           Tu as construit l&apos;habitude. Continue sur ta lancée — le défi ne s&apos;arrête pas ici. 💪
         </p>
         <div className="flex items-center gap-4 px-8 py-5 rounded-3xl bg-accent/[0.10] shadow-[inset_0_0_0_0.5px_color-mix(in srgb,var(--accent) 25%,transparent),0_0_50px_-10px_var(--glow-strong)] mb-6">
-          <span className="text-3xl">🔥</span>
+          <span className="text-accent"><Icon name="flame" size={30} fill stroke={1} /></span>
           <div>
             <div className="font-[family-name:var(--font-jetbrains-mono)] text-[48px] font-bold gradient-text leading-none">{streak}</div>
             <div className="text-[11px] text-muted/70 mt-1">jours de streak</div>
@@ -324,7 +317,7 @@ function isCalorieGoalMet(calories: number, target: number, goal: string): boole
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const { userId, userName, userEmoji } = useUser();
+  const { userId, userName } = useUser();
   const { log, loading, updateField, incrementWater } = useDailyLog(userId);
   const { profile, targets } = useProfile(userId);
   const { totals } = useMeals(userId);
@@ -408,57 +401,60 @@ export default function DashboardPage() {
       <SuccessOverlay show={showSuccess} onClose={() => setShowSuccess(false)} streak={myStreak} />
 
       {/* ── Hero header ── */}
-      <div className="relative pt-10 pb-2 animate-fade-up">
-        <div className="absolute top-3 right-0">
+      <div className="relative pt-6 pb-1 animate-fade-up">
+        <div className="absolute top-2 right-0">
           <ThemeToggle />
         </div>
         <div className="text-center">
-          <p className="text-[12px] font-medium text-muted/60 tracking-[0.12em] mb-3">
-            Bonjour {userName} {userEmoji}
+          <p className="text-[12px] font-medium text-muted/70 tracking-[0.12em] mb-1.5">
+            Bonjour {userName}
           </p>
           <div className="inline-flex flex-col items-center">
-            <span className="text-[10px] font-bold text-muted/35 tracking-[0.22em] uppercase">JOUR</span>
-            <span className="font-[family-name:var(--font-playfair)] text-[96px] gradient-text leading-none tracking-tight">
+            <span className="text-[10px] font-bold text-muted/45 tracking-[0.24em] uppercase mb-0.5">JOUR</span>
+            <span className="font-[family-name:var(--font-playfair)] text-[84px] gradient-text leading-[0.9] tracking-tight">
               {dayNumber}
             </span>
           </div>
-          <p className="text-[14px] text-muted/40 font-medium mt-1">
-            {dayNumber <= CHALLENGE_DAYS ? `sur ${CHALLENGE_DAYS} jours` : 'habitude en cours 💪'}
+          <p className="text-[13px] text-foreground/55 font-medium mt-1.5">
+            {dayNumber <= CHALLENGE_DAYS ? `sur ${CHALLENGE_DAYS} jours` : 'habitude en cours'}
           </p>
           {challengeWon && (
-            <div className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-green/[0.12] shadow-[inset_0_0_0_0.5px_rgba(48,209,88,0.30)] animate-bounce-in">
-              <span className="text-[13px]">🏆</span>
-              <span className="text-[12px] font-bold text-green">Défi réussi</span>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-green"><path d="M20 6L9 17l-5-5" /></svg>
+            <div className="mt-2.5 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-green/[0.12] shadow-[inset_0_0_0_0.5px_rgba(48,209,88,0.30)] animate-bounce-in text-green">
+              <Icon name="trophy" size={13} stroke={2.2} />
+              <span className="text-[12px] font-bold">Défi réussi</span>
             </div>
           )}
         </div>
       </div>
 
       {/* ── Progress card (ring + streak + weekly dots) ── */}
-      <div className="bg-card rounded-3xl shadow-[inset_0_0_0_0.5px_var(--border)] p-5 flex flex-col items-center animate-fade-up delay-1">
-        <ProgressRing value={completionPct} max={100} size={168} strokeWidth={10}>
-          <div className="text-center">
-            <div className={`font-[family-name:var(--font-jetbrains-mono)] text-[42px] font-bold leading-none ${completionPct === 100 ? 'gradient-text' : ''}`}>
-              {completionPct}<span className="text-[15px] text-muted/30">%</span>
+      <div className="bg-card rounded-3xl shadow-[inset_0_0_0_0.5px_var(--border)] p-4 animate-fade-up delay-1">
+        <div className="flex items-center gap-5">
+          <ProgressRing value={completionPct} max={100} size={104} strokeWidth={8}>
+            <div className="text-center">
+              <div className={`font-[family-name:var(--font-jetbrains-mono)] text-[26px] font-bold leading-none ${completionPct === 100 ? 'gradient-text' : ''}`}>
+                {completionPct}<span className="text-[11px] text-muted/30">%</span>
+              </div>
+              <div className="text-[10px] text-muted/50 mt-1">{completedCount}/{objectiveCount}</div>
             </div>
-            <div className="text-[11px] text-muted/50 mt-1.5">
-              {completionPct === 100 ? '🔥 Parfait' : `${completedCount}/${objectiveCount}`}
+          </ProgressRing>
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] font-semibold text-muted/50 tracking-[0.16em] uppercase mb-1">Aujourd&apos;hui</div>
+            <div className="text-[15px] font-semibold leading-tight mb-2.5">
+              {completionPct === 100 ? 'Journée parfaite' : `${completedCount} objectif${completedCount > 1 ? 's' : ''} sur ${objectiveCount}`}
             </div>
+            {myStreak > 0 ? (
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-accent/[0.08] shadow-[inset_0_0_0_0.5px_var(--accent-ring)] text-accent">
+                <Icon name="flame" size={15} fill />
+                <span className="font-[family-name:var(--font-jetbrains-mono)] text-[16px] font-bold leading-none">{myStreak}</span>
+                <span className="text-[11px] text-accent/70">{challengeWon ? 'jours' : `/ ${CHALLENGE_DAYS}`}</span>
+              </div>
+            ) : (
+              <div className="text-[12px] text-muted/50">Complète ta journée pour lancer un streak</div>
+            )}
           </div>
-        </ProgressRing>
-
-        {myStreak > 0 && (
-          <div className="mt-5 flex items-center gap-2.5 px-5 py-2.5 rounded-2xl bg-accent/[0.07] shadow-[inset_0_0_0_0.5px_color-mix(in srgb,var(--accent) 15%,transparent)]">
-            <span className="text-[18px]">🔥</span>
-            <span className="font-[family-name:var(--font-jetbrains-mono)] text-[22px] font-bold gradient-text">{myStreak}</span>
-            <span className="text-[12px] text-accent/60">
-              {challengeWon ? 'jours de streak' : `/ ${CHALLENGE_DAYS} jours`}
-            </span>
-          </div>
-        )}
-
-        <div className="w-full mt-5 pt-4 border-t border-[var(--separator)]">
+        </div>
+        <div className="mt-4 pt-3.5 border-t border-[var(--separator)]">
           <WeeklyDots userId={userId} />
         </div>
       </div>
@@ -473,7 +469,7 @@ export default function DashboardPage() {
 
           {/* Water */}
           <HabitRow
-            icon="💧" label="Eau" done={waterDone}
+            icon="droplet" label="Eau" done={waterDone}
             valueNode={
               <span className="font-[family-name:var(--font-jetbrains-mono)] text-[13px] tabular-nums">
                 <span className={waterDone ? 'text-green' : ''}>{(log.water_ml/1000).toFixed(1)}L</span>
@@ -498,7 +494,7 @@ export default function DashboardPage() {
 
           {/* Steps */}
           <HabitRow
-            icon="👟" label="Pas" done={stepsDone}
+            icon="footprints" label="Pas" done={stepsDone}
             valueNode={
               <span className="font-[family-name:var(--font-jetbrains-mono)] text-[13px] tabular-nums">
                 <span className={stepsDone ? 'text-green' : ''}>{log.steps.toLocaleString()}</span>
@@ -521,7 +517,7 @@ export default function DashboardPage() {
 
           {/* Workout */}
           <HabitRow
-            icon={isRestDay ? '😴' : GOALS.workout.icon} label={GOALS.workout.label} done={workoutDone}
+            icon={isRestDay ? 'moon' : 'dumbbell'} label={GOALS.workout.label} done={workoutDone}
             valueNode={
               <span className="font-[family-name:var(--font-jetbrains-mono)] text-[13px] tabular-nums">
                 {isRestDay ? <span className="text-blue text-[12px]">Rest</span>
@@ -534,10 +530,10 @@ export default function DashboardPage() {
               <div className="flex gap-2">
                 <button
                   onClick={() => updateField('workout_count', isRestDay ? 0 : -1)}
-                  className={`flex-1 h-10 rounded-xl text-[13px] font-semibold transition-all ${
+                  className={`flex-1 h-10 rounded-xl text-[13px] font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${
                     isRestDay ? 'bg-blue/10 text-blue shadow-[inset_0_0_0_0.5px_rgba(10,132,255,0.25)]' : 'bg-foreground/[0.04] text-muted shadow-[inset_0_0_0_0.5px_var(--separator)]'
                   }`}>
-                  {isRestDay ? '✓ ' : ''}Rest day
+                  {isRestDay && <Icon name="check" size={14} stroke={2.4} />}Repos
                 </button>
                 <div className="flex gap-1.5">
                   {log.workout_count > 0 && <Button size="sm" variant="secondary" onClick={() => updateField('workout_count', log.workout_count - 1)}>-</Button>}
@@ -555,12 +551,12 @@ export default function DashboardPage() {
                           const next = types.includes(wt.id) ? types.filter((t: string) => t !== wt.id) : [...types, wt.id];
                           updateField('workout_types', next);
                         }}
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[12px] font-medium transition-all ${
+                        className={`px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all ${
                           (log.workout_types ?? []).includes(wt.id)
-                            ? 'bg-accent/12 text-accent shadow-[inset_0_0_0_0.5px_color-mix(in srgb,var(--accent) 25%,transparent)]'
+                            ? 'bg-accent/12 text-accent shadow-[inset_0_0_0_0.5px_var(--accent-ring)]'
                             : 'bg-foreground/[0.04] text-muted shadow-[inset_0_0_0_0.5px_var(--separator)]'
                         }`}>
-                        <span>{wt.icon}</span><span>{wt.label}</span>
+                        {wt.label}
                       </button>
                     ))}
                   </div>
@@ -581,18 +577,19 @@ export default function DashboardPage() {
 
           {/* Objectif perso — Flex ou Musique */}
           <HabitRow
-            icon="🧘" label="Objectif perso" done={log.stretching || log.reinforcement}
+            icon="sparkle" label="Objectif perso" done={log.stretching || log.reinforcement}
             noExpand
           >
             <div className="flex gap-2">
               {(['stretching', 'reinforcement'] as const).map((field, i) => (
                 <button key={field} onClick={() => updateField(field, !log[field])}
-                  className={`flex-1 h-10 rounded-xl text-[13px] font-semibold transition-all ${
+                  className={`flex-1 h-10 rounded-xl text-[13px] font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${
                     log[field]
                       ? 'bg-green/10 text-green shadow-[inset_0_0_0_0.5px_rgba(48,209,88,0.25)]'
                       : 'bg-foreground/[0.04] text-muted shadow-[inset_0_0_0_0.5px_var(--separator)]'
                   }`}>
-                  {log[field] ? '✓ ' : ''}{i === 0 ? '🧘 Flex' : '🎵 Musique'}
+                  <Icon name={log[field] ? 'check' : i === 0 ? 'activity' : 'music'} size={15} stroke={2} />
+                  {i === 0 ? 'Flex' : 'Musique'}
                 </button>
               ))}
             </div>
@@ -600,7 +597,7 @@ export default function DashboardPage() {
 
           {/* Calories */}
           <HabitRow
-            icon="🍽" label="Calories" done={caloriesDone}
+            icon="flame" label="Calories" done={caloriesDone}
             valueNode={
               <span className="font-[family-name:var(--font-jetbrains-mono)] text-[13px] tabular-nums">
                 <span className={caloriesDone ? 'text-green' : totals.calories > targets.calories ? 'text-red' : ''}>
@@ -623,7 +620,7 @@ export default function DashboardPage() {
 
           {/* Pages */}
           <HabitRow
-            icon={GOALS.pages.icon} label={GOALS.pages.label} done={pagesDone}
+            icon="book" label={GOALS.pages.label} done={pagesDone}
             valueNode={
               <span className="font-[family-name:var(--font-jetbrains-mono)] text-[13px] tabular-nums">
                 <span className={pagesDone ? 'text-green' : ''}>{log.pages}</span>

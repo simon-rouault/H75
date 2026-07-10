@@ -20,7 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
         {/* Main content — shifted right on desktop to make room for sidebar */}
         <div className="lg:ml-[220px]">
-          <main className="w-full max-w-[420px] lg:max-w-[780px] mx-auto px-4 pb-24 lg:pb-10 pt-4">
+          <main className="w-full max-w-[420px] lg:max-w-[780px] mx-auto px-4 pb-28 lg:pb-10 pt-4">
             {children}
           </main>
         </div>

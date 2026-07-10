@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useUser } from '@/hooks/useUser';
-import { CHALLENGE_START_DATE, CHALLENGE_DAYS } from '@/lib/constants';
+import { CHALLENGE_START_DATE, CHALLENGE_DAYS, GOALS } from '@/lib/constants';
 import { daysArray, today } from '@/lib/dates';
+import { isWorkoutDone } from '@/lib/streak-engine';
 import { createClient } from '@/lib/supabase/client';
+import { Icon, Monogram, type IconName } from '@/components/ui/Icon';
 import type { DailyLog } from '@/types/database';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -29,6 +31,16 @@ function getElapsedDays(startDate: string): number {
   return Math.max(1, Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
 }
 
+function daysAgoStr(n: number): string {
+  const d = new Date(today() + 'T00:00:00');
+  d.setDate(d.getDate() - n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function completedInRange(logs: DailyLog[], from: string, to: string): number {
+  return logs.filter(l => l.completed && l.date >= from && l.date <= to).length;
+}
+
 interface Aggregates { sports: number; waterL: number; steps: number; pages: number; }
 
 function computeAggregates(logs: DailyLog[]): Aggregates {
@@ -44,12 +56,138 @@ function computeAggregates(logs: DailyLog[]): Aggregates {
   return { sports: t.sports, waterL: Math.round(t.waterMl / 100) / 10, steps: t.steps, pages: t.pages };
 }
 
+// Adhérence par habitude quotidienne : % de jours écoulés où l'habitude est tenue.
+const DAILY_HABITS: { label: string; icon: IconName; test: (l: DailyLog) => boolean }[] = [
+  { label: 'Eau',            icon: 'droplet',    test: l => l.water_ml >= GOALS.water_ml.target },
+  { label: 'Pas',            icon: 'footprints', test: l => l.steps >= GOALS.steps.target },
+  { label: 'Sport',          icon: 'dumbbell',   test: l => isWorkoutDone(l.workout_count) },
+  { label: 'Objectif perso', icon: 'sparkle',    test: l => l.stretching || l.reinforcement },
+  { label: 'Lecture',        icon: 'book',       test: l => l.pages >= GOALS.pages.target },
+];
+
+function habitAdherence(logs: DailyLog[], elapsed: number) {
+  return DAILY_HABITS.map(h => {
+    const count = logs.filter(h.test).length;
+    const pct = elapsed > 0 ? Math.round((count / elapsed) * 100) : 0;
+    return { label: h.label, icon: h.icon, count, pct };
+  });
+}
+
 // ─── Section label ─────────────────────────────────────────────────────────────
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="px-1 mb-2 mt-5 first:mt-0">
+    <div className="px-1 mb-2.5 mt-6 first:mt-0">
       <span className="text-[11px] font-semibold text-muted/50 tracking-[0.16em] uppercase">{children}</span>
+    </div>
+  );
+}
+
+const CARD = 'bg-card rounded-3xl shadow-[inset_0_0_0_0.5px_var(--border)]';
+
+// ─── Hero streak ───────────────────────────────────────────────────────────────
+
+function HeroStreak({ current, best, rate, completed, elapsed, won }: {
+  current: number; best: number; rate: number; completed: number; elapsed: number; won: boolean;
+}) {
+  return (
+    <div className={`${CARD} p-6 text-center`}>
+      <div className="text-[10px] font-semibold text-muted/50 tracking-[0.2em] uppercase mb-1">Streak actuel</div>
+      <div className="font-[family-name:var(--font-playfair)] text-[68px] gradient-text leading-[0.9] tracking-tight">{current}</div>
+      <div className="text-[13px] text-foreground/55 font-medium mt-1.5 flex items-center justify-center gap-1.5">
+        <span className="text-accent"><Icon name="flame" size={14} fill stroke={1} /></span>
+        {current > 1 ? "jours d'affilée" : current === 1 ? "1 jour d'affilée" : 'lance ton streak aujourd’hui'}
+      </div>
+      {won && (
+        <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green/[0.12] shadow-[inset_0_0_0_0.5px_rgba(48,209,88,0.28)] text-green">
+          <Icon name="trophy" size={13} stroke={2.2} /><span className="text-[12px] font-bold">Défi réussi</span>
+        </div>
+      )}
+      <div className="grid grid-cols-3 divide-x divide-[var(--separator)] mt-5 pt-4 border-t border-[var(--separator)]">
+        {[
+          { label: 'Meilleur', value: best, sub: 'jours' },
+          { label: 'Réussite', value: `${rate}%`, sub: `${completed}/${elapsed}` },
+          { label: 'Complétés', value: completed, sub: `sur ${elapsed}` },
+        ].map(s => (
+          <div key={s.label} className="px-1">
+            <div className="font-[family-name:var(--font-jetbrains-mono)] text-[22px] font-bold leading-none">{s.value}</div>
+            <div className="text-[10px] text-muted/50 mt-1.5 tracking-wide uppercase">{s.label}</div>
+            <div className="text-[10px] text-muted/35 mt-0.5">{s.sub}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Adherence bars ────────────────────────────────────────────────────────────
+
+function AdherenceCard({ items }: { items: { label: string; icon: IconName; count: number; pct: number }[] }) {
+  return (
+    <div className={`${CARD} p-5 space-y-4`}>
+      {items.map(h => {
+        const color = h.pct >= 80 ? 'var(--green)' : h.pct >= 50 ? 'var(--accent)' : 'var(--red)';
+        return (
+          <div key={h.label} className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-foreground/[0.05] flex items-center justify-center text-muted shrink-0">
+              <Icon name={h.icon} size={16} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-baseline justify-between mb-1.5">
+                <span className="text-[13px] font-medium">{h.label}</span>
+                <span className="font-[family-name:var(--font-jetbrains-mono)] text-[12px] font-bold" style={{ color }}>
+                  {h.pct}%<span className="text-muted/35 font-normal ml-1.5">{h.count}j</span>
+                </span>
+              </div>
+              <div className="w-full h-[6px] bg-foreground/[0.06] rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${h.pct}%`, background: color }} />
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Momentum (this week vs last) ────────────────────────────────────────────────
+
+function MomentumCard({ thisWeek, lastWeek }: { thisWeek: number; lastWeek: number }) {
+  const diff = thisWeek - lastWeek;
+  const trend = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
+  const color = trend === 'up' ? 'var(--green)' : trend === 'down' ? 'var(--red)' : 'var(--muted)';
+  return (
+    <div className={`${CARD} p-5 flex items-center justify-between`}>
+      <div>
+        <div className="text-[10px] font-semibold text-muted/50 tracking-[0.16em] uppercase mb-1.5">7 derniers jours</div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="font-[family-name:var(--font-jetbrains-mono)] text-[30px] font-bold leading-none gradient-text">{thisWeek}</span>
+          <span className="text-[13px] text-muted/50">/ 7 jours réussis</span>
+        </div>
+      </div>
+      <div className="text-right">
+        <div className="inline-flex items-center gap-1 text-[13px] font-bold font-[family-name:var(--font-jetbrains-mono)]" style={{ color }}>
+          {trend !== 'flat' && (
+            <Icon name="chevron-down" size={14} stroke={2.5} className={trend === 'up' ? 'rotate-180' : ''} />
+          )}
+          {diff > 0 ? '+' : ''}{diff}
+        </div>
+        <div className="text-[10px] text-muted/40 mt-1">vs 7 j. précédents ({lastWeek})</div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Big stat block ────────────────────────────────────────────────────────────
+
+function StatBlock({ label, value, sub, color = 'text-green' }: {
+  label: string; value: string | number; sub?: string; color?: string;
+}) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center py-5">
+      <div className="text-[10px] font-semibold text-muted/50 tracking-[0.14em] uppercase mb-1.5">{label}</div>
+      <div className={`font-[family-name:var(--font-jetbrains-mono)] text-[30px] font-bold leading-none ${color}`}>{value}</div>
+      {sub && <div className="text-[11px] text-muted/50 mt-1">{sub}</div>}
     </div>
   );
 }
@@ -57,7 +195,6 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 // ─── Calendar Grid ─────────────────────────────────────────────────────────────
 
 function CalendarGrid({ logs, startDate }: { logs: DailyLog[]; startDate: string }) {
-  // At least 75 days, but keep extending as the habit continues past the challenge.
   const days = daysArray(startDate, Math.max(CHALLENGE_DAYS, getElapsedDays(startDate)));
   const logMap = new Map(logs.map(l => [l.date, l]));
   const todayStr = today();
@@ -115,8 +252,8 @@ function DualCalendar({ simonLogs, emmaLogs, startDate }: {
   return (
     <div>
       <div className="flex items-center gap-4 mb-3 text-[11px] text-muted/60">
-        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-[3px] bg-accent" /> Simon 🦁</div>
-        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-[3px] bg-blue" /> Emma 🦊</div>
+        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-[3px] bg-accent" /> Simon</div>
+        <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-[3px] bg-blue" /> Emma</div>
         <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-[3px] bg-green" /> Les deux</div>
       </div>
       <div className="grid grid-cols-7 gap-1 mb-1.5">
@@ -149,55 +286,35 @@ function DualCalendar({ simonLogs, emmaLogs, startDate }: {
   );
 }
 
-// ─── Big stat block ────────────────────────────────────────────────────────────
-
-function StatBlock({ label, value, sub, color = 'text-green' }: {
-  label: string; value: string | number; sub?: string; color?: string;
-}) {
-  return (
-    <div className="flex-1 flex flex-col items-center justify-center py-5">
-      <div className="text-[10px] font-semibold text-muted/50 tracking-[0.14em] uppercase mb-1.5">{label}</div>
-      <div className={`font-[family-name:var(--font-jetbrains-mono)] text-[32px] font-bold leading-none ${color}`}>{value}</div>
-      {sub && <div className="text-[11px] text-muted/50 mt-1">{sub}</div>}
-    </div>
-  );
-}
-
 // ─── Rival card ────────────────────────────────────────────────────────────────
 
-function RivalCard({ name, emoji, streak, completed, rate, todayStatus, isLeading }: {
-  name: string; emoji: string; streak: number; completed: number; rate: number;
-  todayStatus: 'done' | 'missed' | 'ongoing'; isLeading: boolean;
+function RivalCard({ name, streak, completed, rate, isLeading }: {
+  name: string; streak: number; completed: number; rate: number; isLeading: boolean;
 }) {
-  const statusIcon = todayStatus === 'done' ? '✅' : todayStatus === 'ongoing' ? '⏳' : '🔴';
-
   return (
-    <div className={`flex-1 rounded-3xl p-4 transition-all ${
+    <div className={`relative flex-1 rounded-3xl p-4 ${
       isLeading
-        ? 'bg-card shadow-[inset_0_0_0_0.5px_color-mix(in srgb,var(--accent) 20%,transparent),0_0_40px_-8px_var(--glow-strong)]'
+        ? 'bg-card shadow-[inset_0_0_0_0.5px_var(--accent-ring),0_0_36px_-10px_var(--glow-strong)]'
         : 'bg-card shadow-[inset_0_0_0_0.5px_var(--border)]'
     }`}>
-      {isLeading && <div className="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-accent/35 to-transparent" />}
-      <div className="relative flex items-center gap-2.5 mb-4">
-        <div className="text-[28px]">{isLeading ? '👑' : emoji}</div>
-        <div>
-          <div className="text-[15px] font-bold">{name}</div>
-          <div className="text-[11px] text-muted/60">{statusIcon}</div>
+      <div className="flex items-center gap-2.5 mb-4">
+        <div className="relative">
+          <Monogram name={name} size={34} />
+          {isLeading && <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-accent"><Icon name="crown" size={13} fill /></span>}
         </div>
+        <div className="text-[15px] font-bold">{name}</div>
       </div>
-      <div className="space-y-3">
-        <div className="flex justify-between items-baseline">
-          <span className="text-[12px] text-muted/60">Streak</span>
-          <span className={`font-[family-name:var(--font-jetbrains-mono)] text-[20px] font-bold ${isLeading ? 'gradient-text' : ''}`}>{streak}</span>
-        </div>
-        <div className="flex justify-between items-baseline">
-          <span className="text-[12px] text-muted/60">Jours ✓</span>
-          <span className="font-[family-name:var(--font-jetbrains-mono)] text-[16px] font-bold text-green">{completed}</span>
-        </div>
-        <div className="flex justify-between items-baseline">
-          <span className="text-[12px] text-muted/60">Taux</span>
-          <span className="font-[family-name:var(--font-jetbrains-mono)] text-[16px] font-bold">{rate}%</span>
-        </div>
+      <div className="space-y-2.5">
+        {[
+          { label: 'Streak', value: streak, mono: true, accent: isLeading },
+          { label: 'Jours réussis', value: completed, color: 'text-green' },
+          { label: 'Taux', value: `${rate}%`, color: '' },
+        ].map(r => (
+          <div key={r.label} className="flex justify-between items-baseline">
+            <span className="text-[12px] text-muted/60">{r.label}</span>
+            <span className={`font-[family-name:var(--font-jetbrains-mono)] text-[16px] font-bold ${r.accent ? 'text-accent' : r.color ?? ''}`}>{r.value}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -229,7 +346,7 @@ function WeightChart({ userId }: { userId: string }) {
   const diff = last - first;
 
   return (
-    <div className="bg-card rounded-3xl p-5 shadow-[inset_0_0_0_0.5px_var(--border)]">
+    <div className={`${CARD} p-5`}>
       <div className="flex items-center justify-between mb-4">
         <span className="text-[13px] font-semibold">Évolution du poids</span>
         <span className={`font-[family-name:var(--font-jetbrains-mono)] text-[14px] font-bold ${diff < 0 ? 'text-green' : diff > 0 ? 'text-red' : 'text-muted/50'}`}>
@@ -268,7 +385,6 @@ export default function StatsPage() {
 
   useEffect(() => {
     async function fetchData() {
-      // Only count days from the challenge restart onward.
       const [{ data: sLogs }, { data: eLogs }] = await Promise.all([
         supabase.from('daily_logs').select('*').eq('user_id', 'simon').gte('date', CHALLENGE_START_DATE).order('date', { ascending: true }),
         supabase.from('daily_logs').select('*').eq('user_id', 'emma').gte('date', CHALLENGE_START_DATE).order('date', { ascending: true }),
@@ -282,12 +398,13 @@ export default function StatsPage() {
   const myLogs = userId === 'emma' ? emmaLogs : simonLogs;
 
   const elapsed = getElapsedDays(CHALLENGE_START_DATE);
-  const todayStr = today();
   const myCompletedDays = myLogs.filter(l => l.completed).length;
   const successRate = elapsed > 0 ? Math.round((myCompletedDays / elapsed) * 100) : 0;
   const myStreaks = computeStreaks(myLogs, CHALLENGE_START_DATE);
-
   const myAgg = computeAggregates(myLogs);
+  const adherence = habitAdherence(myLogs, elapsed);
+  const thisWeek = completedInRange(myLogs, daysAgoStr(6), today());
+  const lastWeek = completedInRange(myLogs, daysAgoStr(13), daysAgoStr(7));
 
   const simonCompleted = simonLogs.filter(l => l.completed).length;
   const emmaCompleted = emmaLogs.filter(l => l.completed).length;
@@ -298,20 +415,11 @@ export default function StatsPage() {
   const simonRate = elapsed > 0 ? Math.round((simonCompleted / elapsed) * 100) : 0;
   const emmaRate = elapsed > 0 ? Math.round((emmaCompleted / elapsed) * 100) : 0;
 
-  function getTodayStatus(logs: { date: string; completed: boolean }[]): 'done' | 'missed' | 'ongoing' {
-    const logToday = logs.find(l => l.date === todayStr);
-    if (!logToday) return 'ongoing';
-    return logToday.completed ? 'done' : 'ongoing';
-  }
-
-  const simonLeading = simonStreaks.current >= emmaStreaks.current;
-  const emmaLeading = emmaStreaks.current >= simonStreaks.current;
-
   return (
-    <div className="space-y-0 pb-2">
+    <div className="pb-2">
 
       {/* Page title */}
-      <div className="pt-8 pb-4 animate-fade-up">
+      <div className="pt-6 pb-4 animate-fade-up">
         <h1 className="font-[family-name:var(--font-playfair)] text-[32px] font-semibold leading-[1.05] tracking-tight">
           Statistiques
         </h1>
@@ -321,47 +429,34 @@ export default function StatsPage() {
       <div className="flex bg-foreground/[0.05] rounded-2xl p-1 gap-1 animate-fade-up delay-1">
         {(['stats', 'rival'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className={`flex-1 h-9 rounded-xl text-[13px] font-semibold transition-all ${
+            className={`flex-1 h-9 rounded-xl text-[13px] font-semibold transition-all inline-flex items-center justify-center gap-1.5 ${
               tab === t
                 ? 'bg-card shadow-[inset_0_0_0_0.5px_var(--border)] text-foreground'
                 : 'text-muted/50 hover:text-foreground/70'
             }`}>
-            {t === 'stats' ? '📊 Mes stats' : '⚔️ Rival'}
+            <Icon name={t === 'stats' ? 'activity' : 'trophy'} size={14} stroke={2} />
+            {t === 'stats' ? 'Mes stats' : 'Rival'}
           </button>
         ))}
       </div>
 
       {tab === 'stats' && (
-        <div className="space-y-0 animate-fade-up">
+        <div className="animate-fade-up">
 
-          {/* Challenge won banner */}
-          {myStreaks.best >= CHALLENGE_DAYS && (
-            <div className="mt-4 flex items-center gap-3 px-5 py-4 rounded-3xl bg-green/[0.10] shadow-[inset_0_0_0_0.5px_rgba(48,209,88,0.25)]">
-              <span className="text-[26px]">🏆</span>
-              <div>
-                <div className="text-[14px] font-bold text-green">Défi réussi — {CHALLENGE_DAYS} jours d&apos;affilée</div>
-                <div className="text-[12px] text-muted/60 mt-0.5">L&apos;habitude est ancrée. Continue sur ta lancée 💪</div>
-              </div>
-            </div>
-          )}
+          <SectionLabel>Vue d&apos;ensemble</SectionLabel>
+          <HeroStreak
+            current={myStreaks.current} best={myStreaks.best} rate={successRate}
+            completed={myCompletedDays} elapsed={elapsed} won={myStreaks.best >= CHALLENGE_DAYS}
+          />
 
-          {/* Key stats 2x2 */}
-          <SectionLabel>Performance</SectionLabel>
-          <div className="bg-card rounded-3xl shadow-[inset_0_0_0_0.5px_var(--border)] overflow-hidden">
-            <div className="grid grid-cols-2 divide-x divide-[var(--separator)]">
-              <StatBlock label="Streak actuel" value={myStreaks.current} sub="jours" color="gradient-text" />
-              <StatBlock label="Taux de réussite" value={`${successRate}%`} sub={`${myCompletedDays}/${elapsed} j`} color="text-green" />
-            </div>
-            <div className="h-px bg-[var(--separator)]" />
-            <div className="grid grid-cols-2 divide-x divide-[var(--separator)]">
-              <StatBlock label="Meilleur streak" value={myStreaks.best} sub="jours" color="gradient-text" />
-              <StatBlock label="Jours complétés" value={myCompletedDays} sub={`sur ${elapsed} écoulés`} color="text-blue" />
-            </div>
-          </div>
+          <SectionLabel>Régularité par habitude</SectionLabel>
+          <AdherenceCard items={adherence} />
 
-          {/* Cumulative totals */}
+          <SectionLabel>Élan</SectionLabel>
+          <MomentumCard thisWeek={thisWeek} lastWeek={lastWeek} />
+
           <SectionLabel>Cumul depuis le début</SectionLabel>
-          <div className="bg-card rounded-3xl shadow-[inset_0_0_0_0.5px_var(--border)] overflow-hidden">
+          <div className={`${CARD} overflow-hidden`}>
             <div className="grid grid-cols-2 divide-x divide-[var(--separator)]">
               <StatBlock label="Sports" value={myAgg.sports} sub="séances" color="text-accent" />
               <StatBlock label="Eau bue" value={`${myAgg.waterL}L`} sub="total" color="text-blue" />
@@ -373,48 +468,38 @@ export default function StatsPage() {
             </div>
           </div>
 
-          {/* Weight chart */}
           <SectionLabel>Poids</SectionLabel>
           <WeightChart userId={userId} />
 
-          {/* Calendar */}
           <SectionLabel>Calendrier du challenge</SectionLabel>
-          <div className="bg-card rounded-3xl shadow-[inset_0_0_0_0.5px_var(--border)] p-5">
+          <div className={`${CARD} p-5`}>
             <CalendarGrid logs={myLogs} startDate={CHALLENGE_START_DATE} />
           </div>
         </div>
       )}
 
       {tab === 'rival' && (
-        <div className="space-y-0 animate-fade-up">
+        <div className="animate-fade-up">
 
-          {/* Rival cards */}
           <SectionLabel>Face à face</SectionLabel>
           <div className="flex gap-3">
-            <RivalCard
-              name="Simon" emoji="🦁"
-              streak={simonStreaks.current} completed={simonCompleted} rate={simonRate}
-              todayStatus={getTodayStatus(simonLogs)} isLeading={simonLeading && simonStreaks.current > emmaStreaks.current}
-            />
-            <RivalCard
-              name="Emma" emoji="🦊"
-              streak={emmaStreaks.current} completed={emmaCompleted} rate={emmaRate}
-              todayStatus={getTodayStatus(emmaLogs)} isLeading={emmaLeading && emmaStreaks.current > simonStreaks.current}
-            />
+            <RivalCard name="Simon" streak={simonStreaks.current} completed={simonCompleted} rate={simonRate}
+              isLeading={simonStreaks.current > emmaStreaks.current} />
+            <RivalCard name="Emma" streak={emmaStreaks.current} completed={emmaCompleted} rate={emmaRate}
+              isLeading={emmaStreaks.current > simonStreaks.current} />
           </div>
 
-          {/* Comparison table */}
           <SectionLabel>Comparaison</SectionLabel>
-          <div className="bg-card rounded-3xl shadow-[inset_0_0_0_0.5px_var(--border)] overflow-hidden">
+          <div className={`${CARD} overflow-hidden`}>
             <div className="flex items-center px-5 py-3 border-b border-[var(--separator)]">
               <div className="flex-1 text-[12px] text-muted/50">Statistique</div>
-              <div className="w-16 text-center text-[14px]">🦁</div>
-              <div className="w-16 text-center text-[14px]">🦊</div>
+              <div className="w-14 flex justify-center"><Monogram name="Simon" size={24} /></div>
+              <div className="w-14 flex justify-center"><Monogram name="Emma" size={24} /></div>
             </div>
             {[
               { label: 'Streak actuel', s: simonStreaks.current, e: emmaStreaks.current },
               { label: 'Meilleur streak', s: simonStreaks.best, e: emmaStreaks.best },
-              { label: 'Jours complétés', s: simonCompleted, e: emmaCompleted },
+              { label: 'Jours réussis', s: simonCompleted, e: emmaCompleted },
               { label: 'Taux de réussite', s: `${simonRate}%`, e: `${emmaRate}%` },
               { label: 'Sports', s: simonAgg.sports, e: emmaAgg.sports },
               { label: 'Eau bue', s: `${simonAgg.waterL}L`, e: `${emmaAgg.waterL}L` },
@@ -426,16 +511,15 @@ export default function StatsPage() {
               return (
                 <div key={row.label} className="flex items-center px-5 py-3.5 border-b border-[var(--separator)] last:border-0">
                   <div className="flex-1 text-[13px] text-muted/70">{row.label}</div>
-                  <div className={`w-16 text-center font-[family-name:var(--font-jetbrains-mono)] text-[14px] font-bold ${sNum > eNum ? 'text-accent' : 'text-foreground/50'}`}>{row.s}</div>
-                  <div className={`w-16 text-center font-[family-name:var(--font-jetbrains-mono)] text-[14px] font-bold ${eNum > sNum ? 'text-accent' : 'text-foreground/50'}`}>{row.e}</div>
+                  <div className={`w-14 text-center font-[family-name:var(--font-jetbrains-mono)] text-[14px] font-bold ${sNum > eNum ? 'text-accent' : 'text-foreground/50'}`}>{row.s}</div>
+                  <div className={`w-14 text-center font-[family-name:var(--font-jetbrains-mono)] text-[14px] font-bold ${eNum > sNum ? 'text-accent' : 'text-foreground/50'}`}>{row.e}</div>
                 </div>
               );
             })}
           </div>
 
-          {/* Dual calendar */}
           <SectionLabel>Calendrier commun</SectionLabel>
-          <div className="bg-card rounded-3xl shadow-[inset_0_0_0_0.5px_var(--border)] p-5">
+          <div className={`${CARD} p-5`}>
             <DualCalendar simonLogs={simonLogs} emmaLogs={emmaLogs} startDate={CHALLENGE_START_DATE} />
           </div>
         </div>

@@ -105,7 +105,7 @@
   --color-separator: var(--separator);
   --color-glow: var(--glow);
   --color-glow-strong: var(--glow-strong);
-  --font-sans: var(--font-dm-sans);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-jetbrains-mono);
   --font-display: var(--font-playfair);
 }

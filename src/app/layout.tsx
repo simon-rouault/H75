@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Sans, JetBrains_Mono, Playfair_Display } from "next/font/google";
+import { Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
 import "./globals.css";
 
-const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
@@ -49,7 +49,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{if(localStorage.getItem('75j-theme')==='light')document.documentElement.classList.add('light')}catch(e){}})()` }} />
       </head>
       <body
-        className={`${dmSans.variable} ${jetbrainsMono.variable} ${playfair.variable} antialiased`}
+        className={`${inter.variable} ${jetbrainsMono.variable} ${playfair.variable} antialiased`}
       >
         {children}
         <script

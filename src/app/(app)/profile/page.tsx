@@ -59,7 +59,7 @@ function NotificationSettings() {
         <div>
           <div className="text-[14px] font-medium">Notification de rappel</div>
           <div className="text-[12px] text-muted mt-0.5">
-            {permission === 'denied' ? '🚫 Bloqué — Active les notifs dans Safari' : enabled ? 'Activé' : 'Désactivé'}
+            {permission === 'denied' ? 'Bloqué — active les notifs dans Safari' : enabled ? 'Activé' : 'Désactivé'}
           </div>
         </div>
         <button onClick={toggle} disabled={permission === 'denied'}
@@ -229,7 +229,7 @@ export default function ProfilePage() {
               : 'bg-gradient-to-r from-accent to-accent-hover text-white'
           }`}
         >
-          {saved ? '✓ Enregistré' : 'Enregistrer'}
+          {saved ? 'Enregistré' : 'Enregistrer'}
         </button>
       </div>
     </div>

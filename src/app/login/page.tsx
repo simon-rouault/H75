@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Monogram } from '@/components/ui/Icon';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,8 +20,8 @@ export default function LoginPage() {
   }
 
   const users = [
-    { id: 'simon', name: 'Simon', emoji: '🦁', tagline: 'Le Lion' },
-    { id: 'emma',  name: 'Emma',  emoji: '🦊', tagline: 'Le Renard' },
+    { id: 'simon', name: 'Simon' },
+    { id: 'emma',  name: 'Emma' },
   ];
 
   return (
@@ -68,12 +69,11 @@ export default function LoginPage() {
                 </div>
               )}
 
-              <span className="relative text-5xl group-hover:scale-110 transition-transform duration-300 ease-out">
-                {user.emoji}
-              </span>
+              <div className="relative group-hover:scale-105 transition-transform duration-300 ease-out">
+                <Monogram name={user.name} size={64} />
+              </div>
               <div className="relative text-center">
                 <div className="text-[15px] font-semibold tracking-tight">{user.name}</div>
-                <div className="text-[12px] text-muted mt-0.5">{user.tagline}</div>
               </div>
 
               {/* Arrow */}

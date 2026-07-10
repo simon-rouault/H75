@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useUser } from '@/hooks/useUser';
+import { Icon, Monogram } from '@/components/ui/Icon';
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { CHALLENGE_START_DATE, CHALLENGE_DAYS } from '@/lib/constants';
@@ -31,7 +32,7 @@ const NAV = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { userId, userName, userEmoji } = useUser();
+  const { userId, userName } = useUser();
   const [streak, setStreak] = useState(0);
   const supabase = useMemo(() => createClient(), []);
   const dayNumber = getDayNumber(CHALLENGE_START_DATE);
@@ -107,8 +108,8 @@ export function Sidebar() {
 
         {/* Streak widget */}
         {streak > 0 && (
-          <div className="flex items-center gap-3 px-3.5 py-3 rounded-xl bg-accent/5 border border-accent/10 mb-3">
-            <span className="text-[22px]">🔥</span>
+          <div className="flex items-center gap-3 px-3.5 py-3 rounded-xl bg-accent/5 border border-accent/10 mb-3 text-accent">
+            <Icon name="flame" size={22} fill stroke={1} />
             <div>
               <div className="font-[family-name:var(--font-jetbrains-mono)] text-[20px] font-bold gradient-text leading-none">
                 {streak}
@@ -121,9 +122,7 @@ export function Sidebar() {
         {/* User card */}
         <div className="rounded-xl border border-border/60 bg-foreground/[0.02] p-3">
           <div className="flex items-center gap-2.5 mb-3">
-            <div className="w-9 h-9 rounded-xl bg-accent/8 flex items-center justify-center text-[18px] shrink-0">
-              {userEmoji}
-            </div>
+            <Monogram name={userName} size={36} className="rounded-xl shrink-0" />
             <div className="min-w-0">
               <div className="text-[13px] font-semibold truncate">{userName}</div>
               <div className="text-[10px] text-muted/40">En challenge</div>
