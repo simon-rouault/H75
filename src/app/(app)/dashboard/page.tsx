@@ -8,6 +8,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { Button } from '@/components/ui/Button';
 import { Icon, Monogram, type IconName } from '@/components/ui/Icon';
+import { Counter } from '@/components/ui/Counter';
 import { GOALS, CHALLENGE_DAYS, CHALLENGE_START_DATE, WATER_INCREMENTS } from '@/lib/constants';
 import { getDayNumber, getCompletionPercentage, getObjectiveCount, isWorkoutDone, computeStreaks } from '@/lib/streak-engine';
 import { toLocalDateStr, today } from '@/lib/dates';
@@ -385,9 +386,15 @@ export default function DashboardPage() {
 
   if (loading || !log) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60dvh] gap-3">
-        <div className="w-7 h-7 border-2 border-accent/20 border-t-accent rounded-full animate-spin" />
-        <span className="text-[13px] text-muted">Chargement...</span>
+      <div className="space-y-3 pt-6">
+        <div className="flex flex-col items-center gap-3 mb-4">
+          <div className="h-2.5 w-12 rounded-full bg-card animate-pulse" />
+          <div className="h-[72px] w-20 rounded-2xl bg-card animate-pulse" />
+          <div className="h-2.5 w-20 rounded-full bg-card animate-pulse" />
+        </div>
+        <div className="bg-card rounded-3xl h-[150px] animate-pulse" />
+        <div className="bg-card rounded-3xl h-[78px] animate-pulse" />
+        <div className="bg-card rounded-3xl h-[300px] animate-pulse" />
       </div>
     );
   }
@@ -414,9 +421,7 @@ export default function DashboardPage() {
           </p>
           <div className="inline-flex flex-col items-center">
             <span className="text-[10px] font-bold text-muted/45 tracking-[0.24em] uppercase mb-0.5">JOUR</span>
-            <span className="font-[family-name:var(--font-playfair)] text-[84px] gradient-text leading-[0.9] tracking-tight">
-              {dayNumber}
-            </span>
+            <Counter value={dayNumber} className="font-[family-name:var(--font-playfair)] text-[84px] gradient-text leading-[0.9] tracking-tight" />
           </div>
           <p className="text-[13px] text-muted/20 font-bold mt-1.5">
             {dayNumber <= CHALLENGE_DAYS ? `sur ${CHALLENGE_DAYS} jours` : 'habitude en cours'}
@@ -437,7 +442,7 @@ export default function DashboardPage() {
           <ProgressRing value={completionPct} max={100} size={104} strokeWidth={8}>
             <div className="text-center">
               <div className={`font-[family-name:var(--font-jetbrains-mono)] text-[26px] font-bold leading-none ${completionPct === 100 ? 'gradient-text' : ''}`}>
-                {completionPct}<span className="text-[11px] text-muted/30">%</span>
+                <Counter value={completionPct} /><span className="text-[11px] text-muted/30">%</span>
               </div>
               <div className="text-[10px] text-muted/50 mt-1">{completedCount}/{objectiveCount}</div>
             </div>
@@ -451,7 +456,7 @@ export default function DashboardPage() {
             {myStreak > 0 ? (
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-accent/[0.08] shadow-[inset_0_0_0_0.5px_var(--accent-ring)] text-accent">
                 <Icon name="flame" size={15} fill />
-                <span className="font-[family-name:var(--font-jetbrains-mono)] text-[16px] font-bold leading-none">{myStreak}</span>
+                <Counter value={myStreak} className="font-[family-name:var(--font-jetbrains-mono)] text-[16px] font-bold leading-none" />
                 <span className="text-[11px] text-accent/70">{challengeWon ? 'jours' : `/ ${CHALLENGE_DAYS}`}</span>
               </div>
             ) : (

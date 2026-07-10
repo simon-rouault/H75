@@ -10,6 +10,7 @@ import { useFavorites, type FavMeal } from '@/hooks/useFavorites';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
+import { Counter } from '@/components/ui/Counter';
 import { today } from '@/lib/dates';
 import type { Meal } from '@/types/database';
 
@@ -100,9 +101,7 @@ function CalorieRing({ value, target }: { value: number; target: number }) {
       </svg>
       {/* Center text */}
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-[family-name:var(--font-jetbrains-mono)] text-[28px] font-bold tracking-tight leading-none">
-          {Math.round(value)}
-        </span>
+        <Counter value={value} className="font-[family-name:var(--font-jetbrains-mono)] text-[28px] font-bold tracking-tight leading-none" />
         <span className="text-[10px] text-muted/50 mt-1 uppercase tracking-[0.15em] font-semibold">
           {remaining > 0 ? `${Math.round(remaining)} restant` : 'Objectif atteint'}
         </span>

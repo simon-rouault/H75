@@ -7,6 +7,7 @@ import { daysArray, today } from '@/lib/dates';
 import { isWorkoutDone, computeStreaks } from '@/lib/streak-engine';
 import { createClient } from '@/lib/supabase/client';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { Counter } from '@/components/ui/Counter';
 import type { DailyLog } from '@/types/database';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -54,7 +55,7 @@ function HeroStreak({ current, best, rate, completed, elapsed, won }: {
   return (
     <div className={`${CARD} p-6 text-center`}>
       <div className="text-[10px] font-semibold text-muted/50 tracking-[0.2em] uppercase mb-1">Streak actuel</div>
-      <div className="font-[family-name:var(--font-playfair)] text-[68px] gradient-text leading-[0.9] tracking-tight">{current}</div>
+      <Counter value={current} className="block font-[family-name:var(--font-playfair)] text-[68px] gradient-text leading-[0.9] tracking-tight" />
       <div className="text-[13px] text-foreground/55 font-medium mt-1.5 flex items-center justify-center gap-1.5">
         <span className="text-accent"><Icon name="flame" size={14} fill stroke={1} /></span>
         {current > 1 ? "jours d'affilée" : current === 1 ? "1 jour d'affilée" : 'lance ton streak aujourd’hui'}
