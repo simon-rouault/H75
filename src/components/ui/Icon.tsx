@@ -10,7 +10,7 @@ export type IconName =
   | 'flame' | 'book' | 'moon'
   | 'pencil' | 'camera' | 'mic' | 'barcode' | 'settings'
   | 'check' | 'plus' | 'x' | 'arrow-left' | 'chevron-down'
-  | 'trophy' | 'crown' | 'sun' | 'refresh' | 'star';
+  | 'trophy' | 'crown' | 'sun' | 'refresh' | 'star' | 'users';
 
 const PATHS: Record<IconName, string> = {
   droplet: 'M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z',
@@ -44,6 +44,7 @@ const PATHS: Record<IconName, string> = {
   sun: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M12 2v2 M12 20v2 M4.9 4.9l1.4 1.4 M17.7 17.7l1.4 1.4 M2 12h2 M20 12h2 M4.9 19.1l1.4-1.4 M17.7 6.3l1.4-1.4',
   refresh: 'M3 12a9 9 0 0 1 15-6.7L21 8 M21 3v5h-5 M21 12a9 9 0 0 1-15 6.7L3 16 M3 21v-5h5',
   star: 'M12 2.5l2.9 5.88 6.49.94-4.7 4.58 1.11 6.46L12 17.8l-5.8 3.05 1.1-6.46-4.69-4.58 6.49-.94z',
+  users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75',
 };
 
 // Icônes qui contiennent des cercles (dessinés en plus du path).
@@ -51,6 +52,7 @@ const CIRCLES: Partial<Record<IconName, [number, number, number][]>> = {
   camera: [[12, 13, 3]],
   music: [[6, 18, 3], [18, 16, 3]],
   settings: [[12, 12, 3]],
+  users: [[9, 7, 4]],
 };
 
 interface IconProps {

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useUser } from '@/hooks/useUser';
 import { useDailyLog } from '@/hooks/useDailyLog';
 import { useProfile } from '@/hooks/useProfile';
@@ -412,6 +413,10 @@ export default function DashboardPage() {
 
       {/* ── Hero header ── */}
       <div className="relative pt-6 pb-1 animate-fade-up">
+        <Link href="/login" aria-label="Changer de profil"
+          className="absolute top-2 left-0 w-9 h-9 flex items-center justify-center rounded-2xl bg-card text-muted/70 shadow-[inset_0_0_0_0.5px_var(--border)] transition-all active:scale-95 hover:text-foreground">
+          <Icon name="users" size={16} />
+        </Link>
         <div className="absolute top-2 right-0">
           <ThemeToggle />
         </div>
