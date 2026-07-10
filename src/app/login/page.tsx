@@ -3,13 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Monogram } from '@/components/ui/Icon';
-import { CHALLENGE_START_DATE, CHALLENGE_DAYS } from '@/lib/constants';
-
-// Plage du défi, calculée depuis les constantes (jamais périmée).
-const challengeStart = new Date(CHALLENGE_START_DATE + 'T00:00:00');
-const challengeEnd = new Date(challengeStart);
-challengeEnd.setDate(challengeEnd.getDate() + CHALLENGE_DAYS - 1);
-const challengeRange = `${challengeStart.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} — ${challengeEnd.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`;
 
 export default function LoginPage() {
   const router = useRouter();
@@ -90,11 +83,6 @@ export default function LoginPage() {
             </button>
           ))}
         </div>
-
-        {/* Footer */}
-        <p className="mt-16 text-[11px] text-muted/30 tracking-[0.25em] uppercase animate-fade-up delay-3">
-          {challengeRange}
-        </p>
       </div>
     </div>
   );
