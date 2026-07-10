@@ -3,7 +3,7 @@ import { createServerSupabaseClient as createServerClient } from '@/lib/supabase
 import { getAuthUser } from '@/lib/api-auth';
 
 export async function GET(request: NextRequest) {
-  const authResult = await getAuthUser(request);
+  const authResult = getAuthUser(request);
   if (authResult instanceof NextResponse) return authResult;
 
   const userId = request.nextUrl.searchParams.get('userId') ?? authResult;
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const authResult = await getAuthUser(request);
+  const authResult = getAuthUser(request);
   if (authResult instanceof NextResponse) return authResult;
 
   const body = await request.json() as { userId?: string; date?: string; weight_kg?: number };

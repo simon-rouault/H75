@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verifyToken } from '@/lib/auth-token';
 
-export async function proxy(request: NextRequest) {
+export function proxy(request: NextRequest) {
+  const userId = request.cookies.get('75j_user_id')?.value;
   const { pathname } = request.nextUrl;
 
   // Allow login page, login API, and static assets
@@ -10,10 +10,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const userId = await verifyToken(request.cookies.get('75j_user_id')?.value);
-
   // Block everything else (pages + API routes) if not authenticated
-  if (!userId) {
+  if (!userId || !['simon', 'emma'].includes(userId)) {
     // API routes get a 401 JSON response
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });

@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth-token';
+
+const VALID_USERS = ['simon', 'emma'];
 
 /**
- * Extract and validate the authenticated user from the signed cookie.
+ * Extract and validate the authenticated user from the cookie.
  * Returns the userId or a 401 response.
  */
-export async function getAuthUser(request: NextRequest): Promise<string | NextResponse> {
-  const userId = await verifyToken(request.cookies.get('75j_user_id')?.value);
-  if (!userId) {
+export function getAuthUser(request: NextRequest): string | NextResponse {
+  const userId = request.cookies.get('75j_user_id')?.value;
+  if (!userId || !VALID_USERS.includes(userId)) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
   }
   return userId;
