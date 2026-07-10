@@ -7,22 +7,7 @@ import { Icon, Monogram } from '@/components/ui/Icon';
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { CHALLENGE_START_DATE, CHALLENGE_DAYS } from '@/lib/constants';
-import { getDayNumber } from '@/lib/streak-engine';
-import { today } from '@/lib/dates';
-
-function computeStreak(logs: { date: string; completed: boolean }[]): number {
-  const todayStr = today();
-  const completedSet = new Set(logs.filter((l) => l.completed).map((l) => l.date));
-  let running = 0;
-  const d = new Date(CHALLENGE_START_DATE + 'T00:00:00');
-  const end = new Date(todayStr + 'T00:00:00');
-  while (d <= end) {
-    const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    if (completedSet.has(ds)) { running++; } else { running = 0; }
-    d.setDate(d.getDate() + 1);
-  }
-  return running;
-}
+import { getDayNumber, computeStreaks } from '@/lib/streak-engine';
 
 const NAV = [
   { href: '/dashboard', label: 'Objectifs', icon: HomeIcon },
@@ -44,7 +29,7 @@ export function Sidebar() {
         .select('date, completed')
         .eq('user_id', userId)
         .order('date', { ascending: true });
-      if (logs) setStreak(computeStreak(logs as { date: string; completed: boolean }[]));
+      if (logs) setStreak(computeStreaks(logs as { date: string; completed: boolean }[], CHALLENGE_START_DATE).current);
     }
     fetchData();
     const interval = setInterval(fetchData, 60000);

@@ -38,6 +38,37 @@ export function getCompletionPercentage(log: DailyLog, caloriesDone?: boolean): 
   return Math.round((completed / OBJECTIVE_COUNT) * 100);
 }
 
+/**
+ * Streak = nombre de jours complétés consécutifs jusqu'à aujourd'hui.
+ * La journée EN COURS ne casse pas le streak tant qu'elle n'est pas terminée :
+ * un jour non complété ne remet à zéro que s'il est déjà passé (avant aujourd'hui).
+ */
+export function computeStreaks(
+  logs: { date: string; completed: boolean }[],
+  startDate: string,
+  currentDate?: string,
+): { current: number; best: number } {
+  const todayStr = currentDate ?? toLocalDateStr(new Date());
+  const completedSet = new Set(logs.filter((l) => l.completed).map((l) => l.date));
+  let best = 0;
+  let streak = 0;
+  const d = new Date(startDate + 'T00:00:00');
+  const end = new Date(todayStr + 'T00:00:00');
+  while (d <= end) {
+    const ds = toLocalDateStr(d);
+    if (completedSet.has(ds)) {
+      streak++;
+      if (streak > best) best = streak;
+    } else if (ds === todayStr) {
+      // Journée en cours : pas encore ratée, on ne casse pas le streak.
+    } else {
+      streak = 0;
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return { current: streak, best };
+}
+
 export function getDayNumber(startDate: string, currentDate?: string): number {
   if (!currentDate) {
     currentDate = toLocalDateStr(new Date());

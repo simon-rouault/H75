@@ -4,26 +4,12 @@ import { useState, useEffect } from 'react';
 import { useUser } from '@/hooks/useUser';
 import { CHALLENGE_START_DATE, CHALLENGE_DAYS, GOALS } from '@/lib/constants';
 import { daysArray, today } from '@/lib/dates';
-import { isWorkoutDone } from '@/lib/streak-engine';
+import { isWorkoutDone, computeStreaks } from '@/lib/streak-engine';
 import { createClient } from '@/lib/supabase/client';
 import { Icon, Monogram, type IconName } from '@/components/ui/Icon';
 import type { DailyLog } from '@/types/database';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
-
-function computeStreaks(logs: { date: string; completed: boolean }[], startDate: string): { current: number; best: number } {
-  const todayStr = today();
-  const completedSet = new Set(logs.filter(l => l.completed).map(l => l.date));
-  let best = 0, streak = 0;
-  const d = new Date(startDate + 'T00:00:00');
-  const end = new Date(todayStr + 'T00:00:00');
-  while (d <= end) {
-    const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    completedSet.has(ds) ? (streak++, streak > best && (best = streak)) : (streak = 0);
-    d.setDate(d.getDate() + 1);
-  }
-  return { current: streak, best };
-}
 
 function getElapsedDays(startDate: string): number {
   const start = new Date(startDate + 'T00:00:00');

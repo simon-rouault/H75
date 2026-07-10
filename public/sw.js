@@ -1,4 +1,4 @@
-const CACHE_NAME = 'h75-v6';
+const CACHE_NAME = 'h75-v7';
 const STATIC_ASSETS = ['/', '/dashboard', '/food', '/stats'];
 
 self.addEventListener('install', (event) => {
@@ -34,11 +34,39 @@ self.addEventListener('fetch', (event) => {
 
 let reminderTimeout = null;
 
+// Textes de rappel — un tiré au hasard à chaque notification.
+const REMINDER_MESSAGES = [
+  'As-tu validé ta journée ? Coche tes objectifs avant minuit.',
+  'Ton streak compte sur toi — complète tes objectifs du jour.',
+  'Encore quelques objectifs pour une journée parfaite.',
+  'Eau, pas, sport, lecture… où en es-tu aujourd’hui ?',
+  'N’oublie pas de valider ta journée H75.',
+  'Un dernier effort : boucle tes objectifs avant ce soir.',
+];
+
+function pickMessage() {
+  return REMINDER_MESSAGES[Math.floor(Math.random() * REMINDER_MESSAGES.length)];
+}
+
+function showReminder(body) {
+  return self.registration.showNotification('H75', {
+    body: body || pickMessage(),
+    icon: '/h75-192.png',
+    badge: '/h75-192.png',
+    tag: 'daily-reminder',
+    renotify: true,
+  });
+}
+
 self.addEventListener('message', (event) => {
-  if (event.data?.type === 'SCHEDULE_REMINDER') {
-    const { time, enabled } = event.data;
+  const data = event.data || {};
+  if (data.type === 'SCHEDULE_REMINDER') {
+    const { time, enabled } = data;
     if (reminderTimeout) clearTimeout(reminderTimeout);
     if (enabled && time) scheduleReminder(time);
+  } else if (data.type === 'TEST_NOTIFICATION') {
+    // Confirmation immédiate à l'activation (prouve que les notifs marchent).
+    event.waitUntil(showReminder('Rappels activés — on te préviendra chaque jour. 🔔'));
   }
 });
 
@@ -51,14 +79,8 @@ function scheduleReminder(reminderTime) {
   if (delay < 0) delay += 24 * 60 * 60 * 1000; // tomorrow
 
   reminderTimeout = setTimeout(() => {
-    self.registration.showNotification('H75 🔥', {
-      body: 'As-tu complété tous tes objectifs du jour ?',
-      icon: '/h75-192.png',
-      badge: '/h75-192.png',
-      tag: 'daily-reminder',
-    });
-    // Re-schedule for next day
-    scheduleReminder(reminderTime);
+    showReminder();
+    scheduleReminder(reminderTime); // re-programme pour le lendemain
   }, delay);
 }
 

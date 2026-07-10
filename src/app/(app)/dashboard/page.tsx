@@ -9,7 +9,7 @@ import { ProgressRing } from '@/components/ui/ProgressRing';
 import { Button } from '@/components/ui/Button';
 import { Icon, Monogram, type IconName } from '@/components/ui/Icon';
 import { GOALS, CHALLENGE_DAYS, CHALLENGE_START_DATE, WATER_INCREMENTS } from '@/lib/constants';
-import { getDayNumber, getCompletionPercentage, getObjectiveCount, isWorkoutDone } from '@/lib/streak-engine';
+import { getDayNumber, getCompletionPercentage, getObjectiveCount, isWorkoutDone, computeStreaks } from '@/lib/streak-engine';
 import { toLocalDateStr, today } from '@/lib/dates';
 
 import { useState, useEffect, useRef } from 'react';
@@ -35,20 +35,6 @@ function ThemeToggle() {
 }
 
 // ─── Streak computation ────────────────────────────────────────────────────────
-
-function computeStreaks(logs: { date: string; completed: boolean }[]): { current: number; best: number } {
-  const todayStr = today();
-  const completedSet = new Set(logs.filter((l) => l.completed).map((l) => l.date));
-  let running = 0, best = 0;
-  const d = new Date(CHALLENGE_START_DATE + 'T00:00:00');
-  const end = new Date(todayStr + 'T00:00:00');
-  while (d <= end) {
-    const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    if (completedSet.has(ds)) { running++; if (running > best) best = running; } else { running = 0; }
-    d.setDate(d.getDate() + 1);
-  }
-  return { current: running, best };
-}
 
 // ─── Section label ─────────────────────────────────────────────────────────────
 
@@ -94,7 +80,7 @@ function HabitRow({
           done ? 'bg-green/[0.15] text-green' : 'bg-foreground/[0.06] text-muted'
         }`}>
           {done
-            ? <Icon name="check" size={17} stroke={2.4} />
+            ? <span className="animate-check-pop"><Icon name="check" size={17} stroke={2.4} /></span>
             : <Icon name={icon} size={18} />
           }
         </div>
@@ -190,8 +176,8 @@ function StreakBattle() {
         supabase.from('daily_logs').select('date, completed').eq('user_id', 'simon').order('date', { ascending: true }),
         supabase.from('daily_logs').select('date, completed').eq('user_id', 'emma').order('date', { ascending: true }),
       ]);
-      if (s) setSimonStreak(computeStreaks(s as { date: string; completed: boolean }[]).current);
-      if (e) setEmmaStreak(computeStreaks(e as { date: string; completed: boolean }[]).current);
+      if (s) setSimonStreak(computeStreaks(s as { date: string; completed: boolean }[], CHALLENGE_START_DATE).current);
+      if (e) setEmmaStreak(computeStreaks(e as { date: string; completed: boolean }[], CHALLENGE_START_DATE).current);
     }
     fetchStreaks();
   }, [supabase]);
@@ -201,28 +187,32 @@ function StreakBattle() {
   const Side = ({ id, name, streak, align }: { id: string; name: string; streak: number; align: 'left' | 'right' }) => {
     const isLeading = leading === id;
     return (
-      <div className={`flex items-center gap-2.5 flex-1 ${align === 'right' ? 'flex-row-reverse text-right' : ''}`}>
-        <div className="relative">
-          <Monogram name={name} size={34} />
+      <div className={`flex items-center gap-3 flex-1 ${align === 'right' ? 'flex-row-reverse' : ''}`}>
+        <div className="relative shrink-0">
+          <Monogram name={name} size={38} />
           {isLeading && (
             <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-accent"><Icon name="crown" size={13} fill /></span>
           )}
         </div>
-        <div className={align === 'right' ? 'items-end flex flex-col' : ''}>
-          <span className="text-[11px] text-muted/60 font-medium leading-none mb-1">{name}</span>
-          <span className={`font-[family-name:var(--font-jetbrains-mono)] text-[22px] font-bold tabular-nums leading-none ${isLeading ? 'text-accent' : 'text-foreground/50'}`}>{streak}</span>
+        <div className={`flex flex-col ${align === 'right' ? 'items-end' : 'items-start'}`}>
+          <span className="text-[12px] text-foreground/70 font-medium leading-none mb-1.5">{name}</span>
+          <span className="flex items-baseline gap-1">
+            <span className={`font-[family-name:var(--font-jetbrains-mono)] text-[24px] font-bold tabular-nums leading-none ${isLeading ? 'text-accent' : 'text-foreground/45'}`}>{streak}</span>
+            <span className="text-[10px] text-muted/40">j</span>
+          </span>
         </div>
       </div>
     );
   };
 
   return (
-    <div className="bg-card rounded-3xl shadow-[inset_0_0_0_0.5px_var(--border)] px-4 py-3.5 flex items-center gap-3 animate-fade-up delay-3">
-      <Side id="simon" name="Simon" streak={simonStreak} align="left" />
-      <div className="flex flex-col items-center shrink-0">
-        <span className="text-[8px] font-bold text-muted/40 tracking-[0.18em]">VS</span>
+    <div className="bg-card rounded-3xl shadow-[inset_0_0_0_0.5px_var(--border)] px-4 pt-3 pb-3.5 animate-fade-up delay-3">
+      <div className="text-center text-[9px] font-semibold text-muted/40 tracking-[0.18em] uppercase mb-3">Streak · jours d&apos;affilée</div>
+      <div className="flex items-center gap-3">
+        <Side id="simon" name="Simon" streak={simonStreak} align="left" />
+        <span className="text-[9px] font-bold text-muted/35 tracking-[0.16em] shrink-0">VS</span>
+        <Side id="emma" name="Emma" streak={emmaStreak} align="right" />
       </div>
-      <Side id="emma" name="Emma" streak={emmaStreak} align="right" />
     </div>
   );
 }
@@ -327,6 +317,7 @@ export default function DashboardPage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const prevCompletedRef = useRef<boolean | null>(null);
   const [weeklyTotal, setWeeklyTotal] = useState(0);
+  const [ringPop, setRingPop] = useState(false);
   const supabase = createClient();
 
   const challengeWon = myBest >= CHALLENGE_DAYS;
@@ -336,7 +327,7 @@ export default function DashboardPage() {
       const { data } = await supabase.from('daily_logs').select('date, completed')
         .eq('user_id', userId).order('date', { ascending: true });
       if (data) {
-        const { current, best } = computeStreaks(data as { date: string; completed: boolean }[]);
+        const { current, best } = computeStreaks(data as { date: string; completed: boolean }[], CHALLENGE_START_DATE);
         setMyStreak(current);
         setMyBest(best);
         // Celebrate the first time the 75-day streak is reached (once per device).
@@ -380,6 +371,18 @@ export default function DashboardPage() {
   const objectiveCount = getObjectiveCount();
   const completedCount = log ? Math.round((completionPct / 100) * objectiveCount) : 0;
 
+  // Pop premium de l'anneau quand un objectif de plus est complété.
+  const prevCompletedCount = useRef(completedCount);
+  useEffect(() => {
+    if (completedCount > prevCompletedCount.current) {
+      setRingPop(true);
+      const t = setTimeout(() => setRingPop(false), 560);
+      prevCompletedCount.current = completedCount;
+      return () => clearTimeout(t);
+    }
+    prevCompletedCount.current = completedCount;
+  }, [completedCount]);
+
   if (loading || !log) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60dvh] gap-3">
@@ -406,7 +409,7 @@ export default function DashboardPage() {
           <ThemeToggle />
         </div>
         <div className="text-center">
-          <p className="text-[12px] font-medium text-muted/70 tracking-[0.12em] mb-1.5">
+          <p className="text-[12px] font-medium text-muted/40 tracking-[0.12em] mb-1.5">
             Bonjour {userName}
           </p>
           <div className="inline-flex flex-col items-center">
@@ -415,7 +418,7 @@ export default function DashboardPage() {
               {dayNumber}
             </span>
           </div>
-          <p className="text-[13px] text-foreground/55 font-medium mt-1.5">
+          <p className="text-[13px] text-muted/45 font-medium mt-1.5">
             {dayNumber <= CHALLENGE_DAYS ? `sur ${CHALLENGE_DAYS} jours` : 'habitude en cours'}
           </p>
           {challengeWon && (
@@ -430,6 +433,7 @@ export default function DashboardPage() {
       {/* ── Progress card (ring + streak + weekly dots) ── */}
       <div className="bg-card rounded-3xl shadow-[inset_0_0_0_0.5px_var(--border)] p-4 animate-fade-up delay-1">
         <div className="flex items-center gap-5">
+          <div className={ringPop ? 'animate-ring-pop' : ''}>
           <ProgressRing value={completionPct} max={100} size={104} strokeWidth={8}>
             <div className="text-center">
               <div className={`font-[family-name:var(--font-jetbrains-mono)] text-[26px] font-bold leading-none ${completionPct === 100 ? 'gradient-text' : ''}`}>
@@ -438,6 +442,7 @@ export default function DashboardPage() {
               <div className="text-[10px] text-muted/50 mt-1">{completedCount}/{objectiveCount}</div>
             </div>
           </ProgressRing>
+          </div>
           <div className="flex-1 min-w-0">
             <div className="text-[10px] font-semibold text-muted/50 tracking-[0.16em] uppercase mb-1">Aujourd&apos;hui</div>
             <div className="text-[15px] font-semibold leading-tight mb-2.5">
@@ -578,7 +583,13 @@ export default function DashboardPage() {
           {/* Objectif perso — Flex ou Musique */}
           <HabitRow
             icon="sparkle" label="Objectif perso" done={log.stretching || log.reinforcement}
-            noExpand
+            valueNode={
+              <span className="font-[family-name:var(--font-jetbrains-mono)] text-[13px] tabular-nums text-muted/40">
+                {log.stretching || log.reinforcement
+                  ? <span className="text-green">{[log.stretching && 'Flex', log.reinforcement && 'Musique'].filter(Boolean).join(' · ')}</span>
+                  : '—'}
+              </span>
+            }
           >
             <div className="flex gap-2">
               {(['stretching', 'reinforcement'] as const).map((field, i) => (

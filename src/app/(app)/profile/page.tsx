@@ -22,9 +22,15 @@ function NotificationSettings() {
     }
   }, []);
 
+  async function postToSW(message: Record<string, unknown>) {
+    if (!('serviceWorker' in navigator)) return;
+    const reg = await navigator.serviceWorker.ready;
+    (reg.active ?? navigator.serviceWorker.controller)?.postMessage(message);
+  }
+
   async function toggle() {
     if (!enabled) {
-      // Request permission
+      // Demande la permission
       if ('Notification' in window && Notification.permission !== 'granted') {
         const p = await Notification.requestPermission();
         setPermission(p);
@@ -35,19 +41,16 @@ function NotificationSettings() {
     setEnabled(next);
     const data = { enabled: next, time };
     localStorage.setItem('75j-notif', JSON.stringify(data));
-    // Notify SW
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: 'SCHEDULE_REMINDER', ...data });
-    }
+    await postToSW({ type: 'SCHEDULE_REMINDER', ...data });
+    // Confirmation immédiate à l'activation.
+    if (next) await postToSW({ type: 'TEST_NOTIFICATION' });
   }
 
   function saveTime(newTime: string) {
     setTime(newTime);
     const data = { enabled, time: newTime };
     localStorage.setItem('75j-notif', JSON.stringify(data));
-    if (enabled && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: 'SCHEDULE_REMINDER', ...data });
-    }
+    if (enabled) postToSW({ type: 'SCHEDULE_REMINDER', ...data });
   }
 
   if (!('Notification' in window)) return null;
