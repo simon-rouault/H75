@@ -68,7 +68,9 @@ Trois polices Google (chargées dans `layout.tsx`) :
 | --- | --- | --- | --- |
 | **Playfair Display** | `--font-playfair` | Titres sérif haut-contraste + chiffres héros | « H75 », « JOUR 42 », titres de page |
 | **JetBrains Mono** | `--font-jetbrains-mono` | Petites données | streaks, %, calories, poids |
-| **DM Sans** | `--font-dm-sans` | Texte courant (défaut du `body`) | labels, boutons, paragraphes |
+| **Inter** | `--font-inter` | Texte courant (défaut du `body`) | labels, boutons, paragraphes |
+
+> **Icônes** : jeu au trait (style Lucide) dans [components/ui/Icon](src/components/ui/Icon.tsx) — **pas d'emojis** dans l'UI. Avatars des noms = `Monogram` (initiale en Playfair sur pastille indigo).
 
 - ⚠️ Référencer la police display via **`var(--font-playfair)`** (la vraie variable next/font posée sur `<body>`), **pas** `var(--font-display)` qui ne résout pas.
 - Interlettrage global légèrement serré (`letter-spacing: -0.011em`).
