@@ -34,7 +34,7 @@ interface BarcodeProduct {
 
 interface FavMeal { name: string; calories: number; protein: number; carbs: number; fat: number }
 
-const HISTORY_DAYS_LIMIT = 5; // nb de jours d'historique affichés (évite un scroll infini)
+const HISTORY_DAYS_LIMIT = 3; // nb de jours d'historique affichés (évite un scroll infini)
 
 /* ─── Compression image côté client (évite la limite de payload ~4.5 Mo) ─── */
 async function compressImage(file: File, maxDim = 1280, quality = 0.82): Promise<string> {
