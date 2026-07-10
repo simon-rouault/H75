@@ -652,14 +652,21 @@ export default function FoodPage() {
       )}
 
       {/* ═══════ FAVORIS ═══════ */}
-      {favorites.length > 0 && (
-        <div>
-          <div className="flex items-center gap-3 mb-4">
-            <span className="text-accent/70 text-sm">◆</span>
-            <span className="text-[11px] font-bold text-accent/60 uppercase tracking-[0.12em]">Favoris</span>
-            <div className="flex-1 h-[1px] bg-gradient-to-r from-accent/10 to-transparent" />
+      <div>
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-accent/70 text-sm">◆</span>
+          <span className="text-[11px] font-bold text-accent/60 uppercase tracking-[0.12em]">Favoris</span>
+          <div className="flex-1 h-[1px] bg-gradient-to-r from-accent/10 to-transparent" />
+          {favorites.length > 0 && (
             <span className="text-[11px] font-[family-name:var(--font-jetbrains-mono)] text-muted/30 font-bold">{favorites.length}</span>
+          )}
+        </div>
+        {favorites.length === 0 ? (
+          <div className="text-center text-muted/40 text-[13px] py-8 px-4 bg-card rounded-2xl border border-border leading-relaxed">
+            Aucun favori pour l&apos;instant.<br />
+            Appuie sur l&apos;étoile d&apos;un repas pour l&apos;ajouter ici.
           </div>
+        ) : (
           <div className="space-y-2">
             {favorites.map(fav => (
               <div key={fav.name} className="bg-card border border-border rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 hover:border-border/80">
@@ -707,8 +714,8 @@ export default function FoodPage() {
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* ═══════ TODAY'S MEALS ═══════ */}
       <div>
