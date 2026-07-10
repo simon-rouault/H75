@@ -20,7 +20,7 @@ Sois précis et réaliste dans tes estimations. Si c'est une photo, décris ce q
 export async function POST(request: NextRequest) {
   try {
     // Auth check
-    const auth = getAuthUser(request);
+    const auth = await getAuthUser(request);
     if (auth instanceof NextResponse) return auth;
 
     // Rate limit: 50 analyses per day per user

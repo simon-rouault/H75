@@ -3,12 +3,13 @@ import { redirect } from 'next/navigation';
 import { UserProvider } from '@/hooks/useUser';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Sidebar } from '@/components/layout/Sidebar';
+import { verifyToken } from '@/lib/auth-token';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
-  const userId = cookieStore.get('75j_user_id')?.value;
+  const userId = await verifyToken(cookieStore.get('75j_user_id')?.value);
 
-  if (!userId || !['simon', 'emma'].includes(userId)) {
+  if (!userId) {
     redirect('/login');
   }
 

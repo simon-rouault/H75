@@ -7,14 +7,24 @@ import { Monogram } from '@/components/ui/Icon';
 export default function LoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState(false);
 
   async function login(userId: string) {
+    if (loading) return;
+    setError(false);
     setLoading(userId);
-    await fetch('/api/login', {
+    const res = await fetch('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId }),
+      body: JSON.stringify({ userId, pin }),
     });
+    if (!res.ok) {
+      setError(true);
+      setLoading(null);
+      setPin('');
+      return;
+    }
     router.push('/dashboard');
     router.refresh();
   }
@@ -43,9 +53,23 @@ export default function LoginPage() {
         </div>
 
         {/* Subtitle */}
-        <p className="text-[15px] text-foreground/40 font-medium mb-8 animate-fade-up delay-1">
+        <p className="text-[15px] text-foreground/40 font-medium mb-6 animate-fade-up delay-1">
           Qui continue aujourd&apos;hui ?
         </p>
+
+        {/* Code PIN partagé */}
+        <div className="w-full mb-6 animate-fade-up delay-1">
+          <input
+            type="password"
+            inputMode="numeric"
+            autoComplete="off"
+            value={pin}
+            onChange={(e) => { setPin(e.target.value); setError(false); }}
+            placeholder="Code d'accès"
+            className={`w-full h-12 px-4 rounded-2xl bg-card text-center text-[15px] tracking-[0.3em] outline-none transition-all shadow-[inset_0_0_0_0.5px_var(--border)] focus:shadow-[inset_0_0_0_1px_var(--accent-ring)] placeholder:tracking-normal placeholder:text-muted/30 ${error ? 'shadow-[inset_0_0_0_1px_rgba(255,69,58,0.5)]' : ''}`}
+          />
+          {error && <p className="text-[12px] text-red text-center mt-2">Code incorrect</p>}
+        </div>
 
         {/* User cards */}
         <div className="flex gap-4 w-full animate-fade-up delay-2">

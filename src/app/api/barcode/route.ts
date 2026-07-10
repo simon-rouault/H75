@@ -20,7 +20,7 @@ interface OpenFoodFactsResponse {
 }
 
 export async function GET(request: NextRequest) {
-  const authResult = getAuthUser(request);
+  const authResult = await getAuthUser(request);
   if (authResult instanceof NextResponse) return authResult;
 
   const barcode = request.nextUrl.searchParams.get('barcode');
