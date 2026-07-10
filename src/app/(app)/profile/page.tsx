@@ -7,117 +7,6 @@ import { useProfile } from '@/hooks/useProfile';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { calculateMacros, ACTIVITY_LABELS, GOAL_LABELS, type UserProfile } from '@/lib/macros';
 
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const raw = atob(base64);
-  const output = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) output[i] = raw.charCodeAt(i);
-  return output;
-}
-
-function NotificationSettings() {
-  const [enabled, setEnabled] = useState(false);
-  const [time, setTime] = useState('20:00');
-  const [permission, setPermission] = useState<NotificationPermission>('default');
-
-  useEffect(() => {
-    if ('Notification' in window) setPermission(Notification.permission);
-    const stored = localStorage.getItem('75j-notif');
-    if (stored) {
-      const { enabled: e, time: t } = JSON.parse(stored) as { enabled: boolean; time: string };
-      setEnabled(e);
-      if (t) setTime(t);
-    }
-  }, []);
-
-  // Abonne le navigateur au push serveur (rappels même app/tel fermés).
-  async function subscribePush(reminderTime: string) {
-    const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-    if (!vapid || !('serviceWorker' in navigator) || !('PushManager' in window)) throw new Error('push-unsupported');
-    const reg = await navigator.serviceWorker.ready;
-    let sub = await reg.pushManager.getSubscription();
-    if (!sub) {
-      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(vapid) as BufferSource });
-    }
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    await fetch('/api/push/subscribe', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription: sub, time: reminderTime, timezone }),
-    });
-  }
-
-  async function unsubscribePush() {
-    if (!('serviceWorker' in navigator)) return;
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    if (sub) {
-      await fetch('/api/push/unsubscribe', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ endpoint: sub.endpoint }),
-      });
-      await sub.unsubscribe();
-    }
-  }
-
-  async function toggle() {
-    if (!enabled) {
-      if ('Notification' in window && Notification.permission !== 'granted') {
-        const p = await Notification.requestPermission();
-        setPermission(p);
-        if (p !== 'granted') return;
-      }
-      try {
-        await subscribePush(time);
-      } catch {
-        return; // push non supporté / échec
-      }
-      setEnabled(true);
-      localStorage.setItem('75j-notif', JSON.stringify({ enabled: true, time }));
-      // Confirmation immédiate à l'activation.
-      const reg = await navigator.serviceWorker.ready;
-      reg.showNotification('H75', { body: 'Rappels activés — on te préviendra chaque jour.', icon: '/h75-192.png', badge: '/h75-192.png' });
-    } else {
-      await unsubscribePush();
-      setEnabled(false);
-      localStorage.setItem('75j-notif', JSON.stringify({ enabled: false, time }));
-    }
-  }
-
-  async function saveTime(newTime: string) {
-    setTime(newTime);
-    localStorage.setItem('75j-notif', JSON.stringify({ enabled, time: newTime }));
-    if (enabled) { try { await subscribePush(newTime); } catch { /* ignore */ } }
-  }
-
-  if (!('Notification' in window)) return null;
-
-  return (
-    <div className="bg-card rounded-2xl border border-[var(--border)] p-5">
-      <label className="block text-[11px] font-semibold text-muted uppercase tracking-[0.1em] mb-4">Rappel quotidien</label>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <div className="text-[14px] font-medium">Notification de rappel</div>
-          <div className="text-[12px] text-muted mt-0.5">
-            {permission === 'denied' ? 'Bloqué — active les notifs dans Safari' : enabled ? 'Activé' : 'Désactivé'}
-          </div>
-        </div>
-        <button onClick={toggle} disabled={permission === 'denied'}
-          className={`relative w-12 h-7 rounded-full transition-all duration-200 ${enabled && permission === 'granted' ? 'bg-green' : 'bg-foreground/[0.10]'}`}>
-          <div className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow-md transition-all duration-200 ${enabled && permission === 'granted' ? 'left-[22px]' : 'left-0.5'}`} />
-        </button>
-      </div>
-      {enabled && permission === 'granted' && (
-        <div className="flex items-center gap-3">
-          <span className="text-[13px] text-muted">Heure du rappel</span>
-          <input type="time" value={time} onChange={e => saveTime(e.target.value)}
-            className="h-10 px-3 rounded-xl bg-foreground/[0.05] border border-[var(--border)] text-[14px] outline-none focus:border-accent/30 transition-all" />
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function ProfilePage() {
   const { userId } = useUser();
   const { profile, loaded, saveProfile } = useProfile(userId);
@@ -256,9 +145,6 @@ export default function ProfilePage() {
             ))}
           </div>
         </div>
-
-        {/* Notifications */}
-        <NotificationSettings />
 
         {/* Save button */}
         <button
