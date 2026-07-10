@@ -14,10 +14,11 @@ ensemble : ce fichier décrit l'intention, [globals.css](src/app/globals.css) et
 
 ## 1. Principes
 
-- **Inspiration Apple / iOS** : noir profond, surfaces surélevées, hairlines fines, coins très arrondis.
-- **Sombre par défaut**, thème clair disponible (bascule ☀️/🌙, mémorisée dans `localStorage`).
+- **Direction éditoriale premium**, alignée sur le logo (H sérif Le Monde) : titres en sérif haut-contraste (Playfair), surfaces surélevées, hairlines fines, coins très arrondis.
+- **Sombre par défaut** = **encre** légèrement indigo (pas de noir pur) ; thème clair = **ivoire papier** (bascule ☀️/🌙, mémorisée dans `localStorage`).
 - **Mobile-first** : conçu pour le téléphone (PWA), élargi proprement sur desktop.
-- **Une seule couleur de marque** (orange) qui guide l'œil ; le reste est neutre + sémantique.
+- **Une seule couleur de marque** (indigo/violet, famille du logo #4338CA) qui guide l'œil ; le reste est neutre + sémantique.
+- **Motion smooth & sobre** : easings soignés, scroll fluide, press tactile discret — « premium sans en faire trop ». `prefers-reduced-motion` respecté.
 - Sobriété : beaucoup de gris/muted, l'accent et les dégradés sont des récompenses visuelles (streak, réussite).
 
 ---
@@ -30,9 +31,10 @@ Utilisées via Tailwind : `bg-card`, `text-accent`, `bg-green`, `text-muted`…
 ### Marque
 | Token | Sombre | Clair | Usage |
 | --- | --- | --- | --- |
-| `--accent` | `#FF6B2C` | `#E8571F` | Couleur principale (boutons, actifs, dégradés) |
-| `--accent-hover` | `#FF7D42` | `#D14A15` | Survol |
-| `--accent-soft` | orange 10% | orange 7% | Fonds teintés discrets |
+| `--accent` | `#8B7DFF` | `#4338CA` | Couleur principale (boutons, actifs, dégradés) |
+| `--accent-hover` | `#9C90FF` | `#362BA8` | Survol |
+| `--accent-soft` | indigo 12% | indigo 8% | Fonds teintés discrets |
+| `--accent-ring` | indigo 28% | indigo 22% | Hairline teintée des états actifs |
 
 ### Sémantique
 | Token | Sombre | Sens |
@@ -46,13 +48,15 @@ Utilisées via Tailwind : `bg-card`, `text-accent`, `bg-green`, `text-muted`…
 ### Surfaces & texte
 | Token | Sombre | Rôle |
 | --- | --- | --- |
-| `--background` | `#000000` | Fond de page |
-| `--card` | `#1C1C1E` | Cartes / surfaces |
-| `--foreground` | `#F5F5F7` | Texte principal |
-| `--muted` | `#636366` | Texte secondaire / labels |
-| `--border` | blanc 7% | Hairline des cartes |
+| `--background` | `#0B0A10` | Fond de page (encre indigo) |
+| `--card` | `#17161F` | Cartes / surfaces |
+| `--foreground` | `#F3F2F8` | Texte principal |
+| `--muted` | `#6B6A7B` | Texte secondaire / labels |
+| `--border` | blanc 8% | Hairline des cartes |
 | `--separator` | blanc 6% | Séparateurs internes |
-| `--glow` / `--glow-strong` | orange 12% / 30% | Halos autour de l'accent |
+| `--glow` / `--glow-strong` | indigo 14% / 32% | Halos autour de l'accent |
+
+> Thème clair = ivoire papier : `--background #F4F1EA`, `--card #FCFAF5`, `--foreground #1A1822`.
 
 ---
 
@@ -62,12 +66,13 @@ Trois polices Google (chargées dans `layout.tsx`) :
 
 | Police | Variable | Rôle | Exemple |
 | --- | --- | --- | --- |
-| **Dela Gothic One** | `--font-dela-gothic` | Gros titres d'affichage | « JOUR 1 », titres de page |
-| **JetBrains Mono** | `--font-jetbrains-mono` | Chiffres / données | streaks, %, calories, poids |
+| **Playfair Display** | `--font-playfair` | Titres sérif haut-contraste + chiffres héros | « H75 », « JOUR 42 », titres de page |
+| **JetBrains Mono** | `--font-jetbrains-mono` | Petites données | streaks, %, calories, poids |
 | **DM Sans** | `--font-dm-sans` | Texte courant (défaut du `body`) | labels, boutons, paragraphes |
 
-- Interlettrage global légèrement serré (`letter-spacing: -0.015em`).
-- **Règle** : tout nombre « qui compte » (streak, kcal, pas, %) est en **mono**.
+- ⚠️ Référencer la police display via **`var(--font-playfair)`** (la vraie variable next/font posée sur `<body>`), **pas** `var(--font-display)` qui ne résout pas.
+- Interlettrage global légèrement serré (`letter-spacing: -0.011em`).
+- **Règle** : le grand chiffre héros (JOUR) est en **sérif Playfair** ; les petites données (kcal, pas, %) restent en **mono**.
 
 ### Échelle de texte (px, conventions observées)
 `10–11` labels/légendes · `12–13` texte courant secondaire · `14–15` corps/boutons ·
@@ -136,8 +141,8 @@ Courbe standard : `cubic-bezier(0.16, 1, 0.3, 1)` (sortie douce), et
 
 ## 8. Effets signature
 
-- **`.gradient-text`** : dégradé orange→ambre animé, réservé aux chiffres/titres forts
-  (streak, %, « JOUR », « Défi réussi »). À ne pas sur-utiliser.
+- **`.gradient-text`** : dégradé indigo→violet animé (lent), réservé aux chiffres/titres forts
+  (« H75 », streak, « JOUR », « Défi réussi »). À ne pas sur-utiliser — les titres d'écran restent en sérif plein.
 - **`.glass`** : fond translucide + `backdrop-blur` (barres de nav, overlays).
 
 ---
