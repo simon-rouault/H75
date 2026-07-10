@@ -63,7 +63,7 @@ export function Sidebar() {
         {/* Logo / App title */}
         <div className="mb-7">
           <div className="text-[9px] font-bold text-muted/40 tracking-[0.28em] uppercase mb-2">Challenge</div>
-          <div className="font-[family-name:var(--font-dela-gothic)] text-[22px] gradient-text leading-none">H75</div>
+          <div className="font-[family-name:var(--font-playfair)] text-[22px] gradient-text leading-none">H75</div>
           <div className="text-[11px] text-muted/50 mt-2">
             Jour{' '}
             <span className="text-foreground/80 font-semibold font-[family-name:var(--font-jetbrains-mono)]">

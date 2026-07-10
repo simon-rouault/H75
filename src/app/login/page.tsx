@@ -28,14 +28,14 @@ export default function LoginPage() {
       {/* Ambient glow */}
       <div
         className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[400px] pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(255,107,44,0.08) 0%, transparent 65%)' }}
+        style={{ background: 'radial-gradient(ellipse at 50% 0%, color-mix(in srgb,var(--accent) 8%,transparent) 0%, transparent 65%)' }}
       />
 
       <div className="relative z-10 flex flex-col items-center w-full max-w-sm px-6">
         {/* Logo */}
         <div className="mb-12 text-center animate-fade-up">
           <div className="text-[11px] font-semibold text-muted tracking-[0.28em] uppercase mb-4">Challenge</div>
-          <h1 className="font-[family-name:var(--font-dela-gothic)] text-[80px] gradient-text leading-none tracking-tight">
+          <h1 className="font-[family-name:var(--font-playfair)] text-[80px] gradient-text leading-none tracking-tight">
             H75
           </h1>
           <div className="mt-5 w-12 h-[1px] bg-gradient-to-r from-transparent via-accent/40 to-transparent mx-auto" />

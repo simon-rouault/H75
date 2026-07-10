@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "H75 — challenge d'habitudes de Simon & Emma",
     start_url: '/dashboard',
     display: 'standalone',
-    background_color: '#000000',
-    theme_color: '#FF6B2C',
+    background_color: '#0B0A10',
+    theme_color: '#0B0A10',
     orientation: 'portrait',
     icons: [
       {

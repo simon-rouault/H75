@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Sans, JetBrains_Mono, Dela_Gothic_One } from "next/font/google";
+import { DM_Sans, JetBrains_Mono, Playfair_Display } from "next/font/google";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -12,9 +12,10 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
-const delaGothic = Dela_Gothic_One({
-  variable: "--font-dela-gothic",
-  weight: "400",
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
+  weight: ["400", "500", "600", "700", "800", "900"],
+  style: ["normal", "italic"],
   subsets: ["latin"],
 });
 
@@ -33,7 +34,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#FF6B35",
+  themeColor: "#0B0A10",
 };
 
 export default function RootLayout({
@@ -48,7 +49,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{if(localStorage.getItem('75j-theme')==='light')document.documentElement.classList.add('light')}catch(e){}})()` }} />
       </head>
       <body
-        className={`${dmSans.variable} ${jetbrainsMono.variable} ${delaGothic.variable} antialiased`}
+        className={`${dmSans.variable} ${jetbrainsMono.variable} ${playfair.variable} antialiased`}
       >
         {children}
         <script

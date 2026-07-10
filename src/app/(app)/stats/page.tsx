@@ -174,7 +174,7 @@ function RivalCard({ name, emoji, streak, completed, rate, todayStatus, isLeadin
   return (
     <div className={`flex-1 rounded-3xl p-4 transition-all ${
       isLeading
-        ? 'bg-card shadow-[inset_0_0_0_0.5px_rgba(255,107,44,0.20),0_0_40px_-8px_var(--glow-strong)]'
+        ? 'bg-card shadow-[inset_0_0_0_0.5px_color-mix(in srgb,var(--accent) 20%,transparent),0_0_40px_-8px_var(--glow-strong)]'
         : 'bg-card shadow-[inset_0_0_0_0.5px_var(--border)]'
     }`}>
       {isLeading && <div className="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-accent/35 to-transparent" />}
@@ -312,7 +312,7 @@ export default function StatsPage() {
 
       {/* Page title */}
       <div className="pt-8 pb-4 animate-fade-up">
-        <h1 className="font-[family-name:var(--font-dela-gothic)] text-[34px] gradient-text leading-tight tracking-tight">
+        <h1 className="font-[family-name:var(--font-playfair)] text-[32px] font-semibold leading-[1.05] tracking-tight">
           Statistiques
         </h1>
       </div>

@@ -198,7 +198,7 @@ function StreakBattle() {
   const leading = simonStreak > emmaStreak ? 'simon' : emmaStreak > simonStreak ? 'emma' : null;
 
   return (
-    <div className="bg-card rounded-3xl shadow-[inset_0_0_0_0.5px_rgba(255,107,44,0.18),0_0_40px_-8px_var(--glow-strong)] overflow-hidden animate-fade-up delay-3">
+    <div className="bg-card rounded-3xl shadow-[inset_0_0_0_0.5px_color-mix(in srgb,var(--accent) 18%,transparent),0_0_40px_-8px_var(--glow-strong)] overflow-hidden animate-fade-up delay-3">
       <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-accent/35 to-transparent" />
       <div className="p-5">
         <div className="text-[10px] font-bold text-accent/70 uppercase tracking-[0.22em] text-center mb-4">Streak Battle</div>
@@ -254,10 +254,10 @@ function CompletionOverlay({ show, onClose, streak }: { show: boolean; onClose: 
       style={{ background: 'rgba(0,0,0,0.90)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}
       onClick={onClose}>
       <div className="text-[96px] mb-4 animate-bounce-in">🔥</div>
-      <h2 className="font-[family-name:var(--font-dela-gothic)] text-[26px] gradient-text mb-2 text-center">Journée parfaite !</h2>
+      <h2 className="font-[family-name:var(--font-playfair)] text-[26px] gradient-text mb-2 text-center">Journée parfaite !</h2>
       <p className="text-muted text-[14px] text-center mb-7">Tous les objectifs sont complétés.</p>
       {streak > 0 && (
-        <div className="flex items-center gap-4 px-8 py-5 rounded-3xl bg-accent/[0.08] shadow-[inset_0_0_0_0.5px_rgba(255,107,44,0.20)] mb-6">
+        <div className="flex items-center gap-4 px-8 py-5 rounded-3xl bg-accent/[0.08] shadow-[inset_0_0_0_0.5px_color-mix(in srgb,var(--accent) 20%,transparent)] mb-6">
           <span className="text-3xl">🔥</span>
           <div>
             <div className="font-[family-name:var(--font-jetbrains-mono)] text-[44px] font-bold gradient-text leading-none">{streak}</div>
@@ -297,11 +297,11 @@ function SuccessOverlay({ show, onClose, streak }: { show: boolean; onClose: () 
       <div className="relative flex flex-col items-center">
         <div className="text-[104px] mb-2 animate-bounce-in">🏆</div>
         <div className="text-[11px] font-bold text-accent/70 uppercase tracking-[0.28em] mb-2">Défi réussi</div>
-        <h2 className="font-[family-name:var(--font-dela-gothic)] text-[32px] gradient-text mb-3 text-center leading-tight">75 jours d&apos;affilée&nbsp;!</h2>
+        <h2 className="font-[family-name:var(--font-playfair)] text-[32px] gradient-text mb-3 text-center leading-tight">75 jours d&apos;affilée&nbsp;!</h2>
         <p className="text-muted text-[14px] text-center mb-7 max-w-[300px]">
           Tu as construit l&apos;habitude. Continue sur ta lancée — le défi ne s&apos;arrête pas ici. 💪
         </p>
-        <div className="flex items-center gap-4 px-8 py-5 rounded-3xl bg-accent/[0.10] shadow-[inset_0_0_0_0.5px_rgba(255,107,44,0.25),0_0_50px_-10px_var(--glow-strong)] mb-6">
+        <div className="flex items-center gap-4 px-8 py-5 rounded-3xl bg-accent/[0.10] shadow-[inset_0_0_0_0.5px_color-mix(in srgb,var(--accent) 25%,transparent),0_0_50px_-10px_var(--glow-strong)] mb-6">
           <span className="text-3xl">🔥</span>
           <div>
             <div className="font-[family-name:var(--font-jetbrains-mono)] text-[48px] font-bold gradient-text leading-none">{streak}</div>
@@ -418,7 +418,7 @@ export default function DashboardPage() {
           </p>
           <div className="inline-flex flex-col items-center">
             <span className="text-[10px] font-bold text-muted/35 tracking-[0.22em] uppercase">JOUR</span>
-            <span className="font-[family-name:var(--font-dela-gothic)] text-[96px] gradient-text leading-none tracking-tight">
+            <span className="font-[family-name:var(--font-playfair)] text-[96px] gradient-text leading-none tracking-tight">
               {dayNumber}
             </span>
           </div>
@@ -449,7 +449,7 @@ export default function DashboardPage() {
         </ProgressRing>
 
         {myStreak > 0 && (
-          <div className="mt-5 flex items-center gap-2.5 px-5 py-2.5 rounded-2xl bg-accent/[0.07] shadow-[inset_0_0_0_0.5px_rgba(255,107,44,0.15)]">
+          <div className="mt-5 flex items-center gap-2.5 px-5 py-2.5 rounded-2xl bg-accent/[0.07] shadow-[inset_0_0_0_0.5px_color-mix(in srgb,var(--accent) 15%,transparent)]">
             <span className="text-[18px]">🔥</span>
             <span className="font-[family-name:var(--font-jetbrains-mono)] text-[22px] font-bold gradient-text">{myStreak}</span>
             <span className="text-[12px] text-accent/60">
@@ -557,7 +557,7 @@ export default function DashboardPage() {
                         }}
                         className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[12px] font-medium transition-all ${
                           (log.workout_types ?? []).includes(wt.id)
-                            ? 'bg-accent/12 text-accent shadow-[inset_0_0_0_0.5px_rgba(255,107,44,0.25)]'
+                            ? 'bg-accent/12 text-accent shadow-[inset_0_0_0_0.5px_color-mix(in srgb,var(--accent) 25%,transparent)]'
                             : 'bg-foreground/[0.04] text-muted shadow-[inset_0_0_0_0.5px_var(--separator)]'
                         }`}>
                         <span>{wt.icon}</span><span>{wt.label}</span>
