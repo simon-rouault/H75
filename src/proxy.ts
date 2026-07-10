@@ -5,8 +5,8 @@ export function proxy(request: NextRequest) {
   const userId = request.cookies.get('75j_user_id')?.value;
   const { pathname } = request.nextUrl;
 
-  // Allow login page, login API, and static assets
-  if (pathname === '/login' || pathname === '/api/login' || pathname.startsWith('/_next/') || pathname.startsWith('/sw.js') || pathname === '/manifest.webmanifest') {
+  // Allow login page, login API, cron endpoint (protégé par CRON_SECRET) et assets statiques
+  if (pathname === '/login' || pathname === '/api/login' || pathname.startsWith('/api/cron/') || pathname.startsWith('/_next/') || pathname.startsWith('/sw.js') || pathname === '/manifest.webmanifest') {
     return NextResponse.next();
   }
 

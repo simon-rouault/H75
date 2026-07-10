@@ -1,4 +1,4 @@
-const CACHE_NAME = 'h75-v7';
+const CACHE_NAME = 'h75-v8';
 const STATIC_ASSETS = ['/', '/dashboard', '/food', '/stats'];
 
 self.addEventListener('install', (event) => {
@@ -30,9 +30,7 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// ─── Notification scheduling ──────────────────────────────────────────────────
-
-let reminderTimeout = null;
+// ─── Notifications ────────────────────────────────────────────────────────────
 
 // Textes de rappel — un tiré au hasard à chaque notification.
 const REMINDER_MESSAGES = [
@@ -58,31 +56,14 @@ function showReminder(body) {
   });
 }
 
-self.addEventListener('message', (event) => {
-  const data = event.data || {};
-  if (data.type === 'SCHEDULE_REMINDER') {
-    const { time, enabled } = data;
-    if (reminderTimeout) clearTimeout(reminderTimeout);
-    if (enabled && time) scheduleReminder(time);
-  } else if (data.type === 'TEST_NOTIFICATION') {
-    // Confirmation immédiate à l'activation (prouve que les notifs marchent).
-    event.waitUntil(showReminder('Rappels activés — on te préviendra chaque jour. 🔔'));
-  }
+
+// ─── Web Push (rappels serveur — marchent app/téléphone fermés) ────────────────
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try { payload = event.data ? event.data.json() : {}; }
+  catch { payload = { body: event.data ? event.data.text() : '' }; }
+  event.waitUntil(showReminder(payload.body));
 });
-
-function scheduleReminder(reminderTime) {
-  const [hours, minutes] = reminderTime.split(':').map(Number);
-  const now = new Date();
-  const target = new Date();
-  target.setHours(hours, minutes, 0, 0);
-  let delay = target.getTime() - now.getTime();
-  if (delay < 0) delay += 24 * 60 * 60 * 1000; // tomorrow
-
-  reminderTimeout = setTimeout(() => {
-    showReminder();
-    scheduleReminder(reminderTime); // re-programme pour le lendemain
-  }, delay);
-}
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();

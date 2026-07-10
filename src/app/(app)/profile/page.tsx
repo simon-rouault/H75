@@ -7,6 +7,15 @@ import { useProfile } from '@/hooks/useProfile';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { calculateMacros, ACTIVITY_LABELS, GOAL_LABELS, type UserProfile } from '@/lib/macros';
 
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  const output = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) output[i] = raw.charCodeAt(i);
+  return output;
+}
+
 function NotificationSettings() {
   const [enabled, setEnabled] = useState(false);
   const [time, setTime] = useState('20:00');
@@ -22,35 +31,63 @@ function NotificationSettings() {
     }
   }, []);
 
-  async function postToSW(message: Record<string, unknown>) {
+  // Abonne le navigateur au push serveur (rappels même app/tel fermés).
+  async function subscribePush(reminderTime: string) {
+    const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!vapid || !('serviceWorker' in navigator) || !('PushManager' in window)) throw new Error('push-unsupported');
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(vapid) as BufferSource });
+    }
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    await fetch('/api/push/subscribe', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription: sub, time: reminderTime, timezone }),
+    });
+  }
+
+  async function unsubscribePush() {
     if (!('serviceWorker' in navigator)) return;
     const reg = await navigator.serviceWorker.ready;
-    (reg.active ?? navigator.serviceWorker.controller)?.postMessage(message);
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      await fetch('/api/push/unsubscribe', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: sub.endpoint }),
+      });
+      await sub.unsubscribe();
+    }
   }
 
   async function toggle() {
     if (!enabled) {
-      // Demande la permission
       if ('Notification' in window && Notification.permission !== 'granted') {
         const p = await Notification.requestPermission();
         setPermission(p);
         if (p !== 'granted') return;
       }
+      try {
+        await subscribePush(time);
+      } catch {
+        return; // push non supporté / échec
+      }
+      setEnabled(true);
+      localStorage.setItem('75j-notif', JSON.stringify({ enabled: true, time }));
+      // Confirmation immédiate à l'activation.
+      const reg = await navigator.serviceWorker.ready;
+      reg.showNotification('H75', { body: 'Rappels activés — on te préviendra chaque jour.', icon: '/h75-192.png', badge: '/h75-192.png' });
+    } else {
+      await unsubscribePush();
+      setEnabled(false);
+      localStorage.setItem('75j-notif', JSON.stringify({ enabled: false, time }));
     }
-    const next = !enabled;
-    setEnabled(next);
-    const data = { enabled: next, time };
-    localStorage.setItem('75j-notif', JSON.stringify(data));
-    await postToSW({ type: 'SCHEDULE_REMINDER', ...data });
-    // Confirmation immédiate à l'activation.
-    if (next) await postToSW({ type: 'TEST_NOTIFICATION' });
   }
 
-  function saveTime(newTime: string) {
+  async function saveTime(newTime: string) {
     setTime(newTime);
-    const data = { enabled, time: newTime };
-    localStorage.setItem('75j-notif', JSON.stringify(data));
-    if (enabled) postToSW({ type: 'SCHEDULE_REMINDER', ...data });
+    localStorage.setItem('75j-notif', JSON.stringify({ enabled, time: newTime }));
+    if (enabled) { try { await subscribePush(newTime); } catch { /* ignore */ } }
   }
 
   if (!('Notification' in window)) return null;
