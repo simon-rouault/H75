@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useUser } from '@/hooks/useUser';
 import { useMeals, useMealHistory } from '@/hooks/useMeals';
@@ -31,6 +31,10 @@ interface BarcodeProduct {
   fat_per_100g: number;
   image_url: string | null;
 }
+
+interface FavMeal { name: string; calories: number; protein: number; carbs: number; fat: number }
+
+const HISTORY_DAYS_LIMIT = 5; // nb de jours d'historique affichés (évite un scroll infini)
 
 /* ─── Compression image côté client (évite la limite de payload ~4.5 Mo) ─── */
 async function compressImage(file: File, maxDim = 1280, quality = 0.82): Promise<string> {
@@ -192,6 +196,36 @@ export default function FoodPage() {
   const [barcodeLoading, setBarcodeLoading] = useState(false);
   const [barcodeError, setBarcodeError] = useState<string | null>(null);
   const [barcodeGrams, setBarcodeGrams] = useState('100');
+
+  // Favoris (localStorage, par utilisateur)
+  const [favorites, setFavorites] = useState<FavMeal[]>([]);
+  useEffect(() => {
+    try { const s = localStorage.getItem(`h75-fav-${userId}`); if (s) setFavorites(JSON.parse(s)); } catch { /* ignore */ }
+  }, [userId]);
+  function persistFavorites(next: FavMeal[]) {
+    setFavorites(next);
+    try { localStorage.setItem(`h75-fav-${userId}`, JSON.stringify(next)); } catch { /* ignore */ }
+  }
+  const isFavorite = (name: string) => favorites.some(f => f.name === name);
+  function toggleFavorite(m: FavMeal) {
+    if (isFavorite(m.name)) persistFavorites(favorites.filter(f => f.name !== m.name));
+    else persistFavorites([{ name: m.name, calories: m.calories, protein: m.protein, carbs: m.carbs, fat: m.fat }, ...favorites]);
+  }
+  async function addFavoriteMeal(fav: FavMeal) {
+    if (addingRecent) return;
+    setAddingRecent(fav.name);
+    try {
+      await addMeal({
+        user_id: userId, date: today(), name: fav.name,
+        calories: fav.calories, protein: fav.protein, carbs: fav.carbs, fat: fav.fat,
+        input_type: 'text', ai_raw_response: null, manually_adjusted: false,
+      } as Omit<Meal, 'id' | 'created_at'>);
+      setJustAdded(fav.name);
+      setTimeout(() => setJustAdded(null), 1200);
+    } catch { /* ignore */ } finally {
+      setAddingRecent(null);
+    }
+  }
 
   // Segmented control animation
   const modeIndex = mode === 'text' ? 0 : mode === 'photo' ? 1 : mode === 'voice' ? 2 : 3;
@@ -630,6 +664,47 @@ export default function FoodPage() {
         </div>
       )}
 
+      {/* ═══════ FAVORIS ═══════ */}
+      {favorites.length > 0 && (
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-accent"><Icon name="star" size={14} fill /></span>
+            <span className="text-[11px] font-bold text-accent/60 uppercase tracking-[0.12em]">Favoris</span>
+            <div className="flex-1 h-[1px] bg-gradient-to-r from-accent/10 to-transparent" />
+            <span className="text-[11px] font-[family-name:var(--font-jetbrains-mono)] text-muted/30 font-bold">{favorites.length}</span>
+          </div>
+          <div className="space-y-2">
+            {favorites.map(fav => (
+              <div key={fav.name} className="bg-card border border-border rounded-2xl p-4 flex items-center gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[14px] font-semibold truncate">{fav.name}</div>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="font-[family-name:var(--font-jetbrains-mono)] text-[11px] text-accent/70 font-bold">{fav.calories}<span className="text-muted/30 font-normal ml-0.5">kcal</span></span>
+                    <span className="text-border">·</span>
+                    <div className="flex items-center gap-1.5 font-[family-name:var(--font-jetbrains-mono)] text-[10px] text-muted/40">
+                      <span><span className="text-blue/60">P</span>{fav.protein}</span>
+                      <span><span className="text-yellow/60">G</span>{fav.carbs}</span>
+                      <span><span className="text-red/60">L</span>{fav.fat}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button onClick={() => toggleFavorite(fav)} className="w-8 h-8 flex items-center justify-center rounded-lg text-accent">
+                    <Icon name="star" size={15} fill />
+                  </button>
+                  <button onClick={() => addFavoriteMeal(fav)} disabled={addingRecent === fav.name}
+                    className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${
+                      justAdded === fav.name ? 'bg-green/15 text-green' : addingRecent === fav.name ? 'bg-accent/10 text-accent' : 'text-muted/30 hover:text-accent hover:bg-accent/8'
+                    }`}>
+                    {justAdded === fav.name ? <Icon name="check" size={15} stroke={2.4} /> : addingRecent === fav.name ? <span className="w-3 h-3 border-[1.5px] border-accent/30 border-t-accent rounded-full animate-spin" /> : <Icon name="plus" size={15} stroke={2.2} />}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ═══════ TODAY'S MEALS ═══════ */}
       <div>
         <div className="flex items-center gap-3 mb-4">
@@ -687,6 +762,15 @@ export default function FoodPage() {
                 </div>
                 {/* Actions */}
                 <div className="flex items-center gap-1 flex-shrink-0">
+                  {/* Favori */}
+                  <button
+                    onClick={() => toggleFavorite(meal)}
+                    className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${
+                      isFavorite(meal.name) ? 'text-accent' : 'text-muted/20 hover:text-accent hover:bg-accent/8'
+                    }`}
+                  >
+                    <Icon name="star" size={15} fill={isFavorite(meal.name)} />
+                  </button>
                   {/* Re-add */}
                   <button
                     onClick={() => quickAddMeal(meal)}
@@ -733,7 +817,7 @@ export default function FoodPage() {
           </button>
           {showHistory && (
             <div className="space-y-5 max-h-[60vh] overflow-y-auto">
-              {Object.entries(history).map(([date, dateMeals]) => {
+              {Object.entries(history).slice(0, HISTORY_DAYS_LIMIT).map(([date, dateMeals]) => {
                 const label = new Date(date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
                 const dayTotal = dateMeals.reduce((s, m) => s + m.calories, 0);
                 return (
@@ -765,21 +849,31 @@ export default function FoodPage() {
                               </div>
                             </div>
                           </div>
-                          <button
-                            onClick={() => quickAddMeal(meal)}
-                            disabled={addingRecent === meal.id}
-                            className={`w-8 h-8 flex items-center justify-center rounded-lg text-[12px] transition-all duration-300 flex-shrink-0 ${
-                              justAdded === meal.id
-                                ? 'bg-green/15 text-green'
-                                : addingRecent === meal.id
-                                  ? 'bg-accent/10 text-accent'
-                                  : 'text-muted/20 hover:text-accent hover:bg-accent/8'
-                            }`}
-                          >
-                            {justAdded === meal.id ? '✓' : addingRecent === meal.id ? (
-                              <span className="w-3 h-3 border-[1.5px] border-accent/30 border-t-accent rounded-full animate-spin" />
-                            ) : '+'}
-                          </button>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button
+                              onClick={() => toggleFavorite(meal)}
+                              className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${
+                                isFavorite(meal.name) ? 'text-accent' : 'text-muted/20 hover:text-accent hover:bg-accent/8'
+                              }`}
+                            >
+                              <Icon name="star" size={15} fill={isFavorite(meal.name)} />
+                            </button>
+                            <button
+                              onClick={() => quickAddMeal(meal)}
+                              disabled={addingRecent === meal.id}
+                              className={`w-8 h-8 flex items-center justify-center rounded-lg text-[12px] transition-all duration-300 ${
+                                justAdded === meal.id
+                                  ? 'bg-green/15 text-green'
+                                  : addingRecent === meal.id
+                                    ? 'bg-accent/10 text-accent'
+                                    : 'text-muted/20 hover:text-accent hover:bg-accent/8'
+                              }`}
+                            >
+                              {justAdded === meal.id ? <Icon name="check" size={15} stroke={2.4} /> : addingRecent === meal.id ? (
+                                <span className="w-3 h-3 border-[1.5px] border-accent/30 border-t-accent rounded-full animate-spin" />
+                              ) : <Icon name="plus" size={15} stroke={2.2} />}
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>

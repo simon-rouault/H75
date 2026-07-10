@@ -409,7 +409,7 @@ export default function DashboardPage() {
           <ThemeToggle />
         </div>
         <div className="text-center">
-          <p className="text-[12px] font-medium text-muted/40 tracking-[0.12em] mb-1.5">
+          <p className="text-[12px] font-medium text-muted/25 tracking-[0.12em] mb-1.5">
             Bonjour {userName}
           </p>
           <div className="inline-flex flex-col items-center">
@@ -418,7 +418,7 @@ export default function DashboardPage() {
               {dayNumber}
             </span>
           </div>
-          <p className="text-[13px] text-muted/45 font-medium mt-1.5">
+          <p className="text-[13px] text-muted/25 font-medium mt-1.5">
             {dayNumber <= CHALLENGE_DAYS ? `sur ${CHALLENGE_DAYS} jours` : 'habitude en cours'}
           </p>
           {challengeWon && (

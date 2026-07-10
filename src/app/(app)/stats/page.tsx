@@ -17,16 +17,6 @@ function getElapsedDays(startDate: string): number {
   return Math.max(1, Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
 }
 
-function daysAgoStr(n: number): string {
-  const d = new Date(today() + 'T00:00:00');
-  d.setDate(d.getDate() - n);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-
-function completedInRange(logs: DailyLog[], from: string, to: string): number {
-  return logs.filter(l => l.completed && l.date >= from && l.date <= to).length;
-}
-
 interface Aggregates { sports: number; waterL: number; steps: number; pages: number; }
 
 function computeAggregates(logs: DailyLog[]): Aggregates {
@@ -132,48 +122,6 @@ function AdherenceCard({ items }: { items: { label: string; icon: IconName; coun
           </div>
         );
       })}
-    </div>
-  );
-}
-
-// ─── Momentum (this week vs last) ────────────────────────────────────────────────
-
-function MomentumCard({ thisWeek, lastWeek }: { thisWeek: number; lastWeek: number }) {
-  const diff = thisWeek - lastWeek;
-  const trend = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
-  const color = trend === 'up' ? 'var(--green)' : trend === 'down' ? 'var(--red)' : 'var(--muted)';
-  return (
-    <div className={`${CARD} p-5 flex items-center justify-between`}>
-      <div>
-        <div className="text-[10px] font-semibold text-muted/50 tracking-[0.16em] uppercase mb-1.5">7 derniers jours</div>
-        <div className="flex items-baseline gap-1.5">
-          <span className="font-[family-name:var(--font-jetbrains-mono)] text-[30px] font-bold leading-none gradient-text">{thisWeek}</span>
-          <span className="text-[13px] text-muted/50">/ 7 jours réussis</span>
-        </div>
-      </div>
-      <div className="text-right">
-        <div className="inline-flex items-center gap-1 text-[13px] font-bold font-[family-name:var(--font-jetbrains-mono)]" style={{ color }}>
-          {trend !== 'flat' && (
-            <Icon name="chevron-down" size={14} stroke={2.5} className={trend === 'up' ? 'rotate-180' : ''} />
-          )}
-          {diff > 0 ? '+' : ''}{diff}
-        </div>
-        <div className="text-[10px] text-muted/40 mt-1">vs 7 j. précédents ({lastWeek})</div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Big stat block ────────────────────────────────────────────────────────────
-
-function StatBlock({ label, value, sub, color = 'text-green' }: {
-  label: string; value: string | number; sub?: string; color?: string;
-}) {
-  return (
-    <div className="flex-1 flex flex-col items-center justify-center py-5">
-      <div className="text-[10px] font-semibold text-muted/50 tracking-[0.14em] uppercase mb-1.5">{label}</div>
-      <div className={`font-[family-name:var(--font-jetbrains-mono)] text-[30px] font-bold leading-none ${color}`}>{value}</div>
-      {sub && <div className="text-[11px] text-muted/50 mt-1">{sub}</div>}
     </div>
   );
 }
@@ -306,60 +254,6 @@ function RivalCard({ name, streak, completed, rate, isLeading }: {
   );
 }
 
-// ─── Weight chart ──────────────────────────────────────────────────────────────
-
-function WeightChart({ userId }: { userId: string }) {
-  const [data, setData] = useState<{ date: string; weight_kg: number }[]>([]);
-
-  useEffect(() => {
-    fetch(`/api/weight?userId=${userId}&all=true`)
-      .then(r => r.ok ? r.json() : [])
-      .then(d => setData((d as { date: string; weight_kg: number }[]).sort((a, b) => a.date.localeCompare(b.date))));
-  }, [userId]);
-
-  if (data.length < 2) return null;
-
-  const W = 300, H = 80;
-  const weights = data.map(d => d.weight_kg);
-  const minW = Math.min(...weights) - 1;
-  const maxW = Math.max(...weights) + 1;
-  const n = data.length;
-  const toX = (i: number) => (i / (n - 1)) * W;
-  const toY = (w: number) => H - ((w - minW) / (maxW - minW)) * H;
-  const points = data.map((d, i) => `${toX(i).toFixed(1)},${toY(d.weight_kg).toFixed(1)}`).join(' ');
-  const first = data[0].weight_kg;
-  const last = data[data.length - 1].weight_kg;
-  const diff = last - first;
-
-  return (
-    <div className={`${CARD} p-5`}>
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-[13px] font-semibold">Évolution du poids</span>
-        <span className={`font-[family-name:var(--font-jetbrains-mono)] text-[14px] font-bold ${diff < 0 ? 'text-green' : diff > 0 ? 'text-red' : 'text-muted/50'}`}>
-          {diff > 0 ? '+' : ''}{diff.toFixed(1)} kg
-        </span>
-      </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 64 }}>
-        <defs>
-          <linearGradient id="wline" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.5" />
-            <stop offset="100%" stopColor="var(--accent)" />
-          </linearGradient>
-        </defs>
-        <polyline points={points} fill="none" stroke="url(#wline)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        {data.map((d, i) => (
-          <circle key={i} cx={toX(i)} cy={toY(d.weight_kg)} r="2.5" fill="var(--accent)" />
-        ))}
-      </svg>
-      <div className="flex justify-between text-[11px] text-muted/50 mt-2">
-        <span>{data[0].date.slice(5)}</span>
-        <span className="font-[family-name:var(--font-jetbrains-mono)] text-[13px] font-semibold text-foreground">{last} kg</span>
-        <span>{data[data.length - 1].date.slice(5)}</span>
-      </div>
-    </div>
-  );
-}
-
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function StatsPage() {
@@ -387,10 +281,7 @@ export default function StatsPage() {
   const myCompletedDays = myLogs.filter(l => l.completed).length;
   const successRate = elapsed > 0 ? Math.round((myCompletedDays / elapsed) * 100) : 0;
   const myStreaks = computeStreaks(myLogs, CHALLENGE_START_DATE);
-  const myAgg = computeAggregates(myLogs);
   const adherence = habitAdherence(myLogs, elapsed);
-  const thisWeek = completedInRange(myLogs, daysAgoStr(6), today());
-  const lastWeek = completedInRange(myLogs, daysAgoStr(13), daysAgoStr(7));
 
   const simonCompleted = simonLogs.filter(l => l.completed).length;
   const emmaCompleted = emmaLogs.filter(l => l.completed).length;
@@ -437,25 +328,6 @@ export default function StatsPage() {
 
           <SectionLabel>Régularité par habitude</SectionLabel>
           <AdherenceCard items={adherence} />
-
-          <SectionLabel>Élan</SectionLabel>
-          <MomentumCard thisWeek={thisWeek} lastWeek={lastWeek} />
-
-          <SectionLabel>Cumul depuis le début</SectionLabel>
-          <div className={`${CARD} overflow-hidden`}>
-            <div className="grid grid-cols-2 divide-x divide-[var(--separator)]">
-              <StatBlock label="Sports" value={myAgg.sports} sub="séances" color="text-accent" />
-              <StatBlock label="Eau bue" value={`${myAgg.waterL}L`} sub="total" color="text-blue" />
-            </div>
-            <div className="h-px bg-[var(--separator)]" />
-            <div className="grid grid-cols-2 divide-x divide-[var(--separator)]">
-              <StatBlock label="Pas" value={myAgg.steps.toLocaleString('fr-FR')} sub="cumulés" color="text-green" />
-              <StatBlock label="Pages lues" value={myAgg.pages} sub="pages" color="text-yellow" />
-            </div>
-          </div>
-
-          <SectionLabel>Poids</SectionLabel>
-          <WeightChart userId={userId} />
 
           <SectionLabel>Calendrier du challenge</SectionLabel>
           <div className={`${CARD} p-5`}>
