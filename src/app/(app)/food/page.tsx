@@ -655,14 +655,19 @@ export default function FoodPage() {
       {favorites.length > 0 && (
         <div>
           <div className="flex items-center gap-3 mb-4">
-            <span className="text-accent"><Icon name="star" size={14} fill /></span>
+            <span className="text-accent/70 text-sm">◆</span>
             <span className="text-[11px] font-bold text-accent/60 uppercase tracking-[0.12em]">Favoris</span>
             <div className="flex-1 h-[1px] bg-gradient-to-r from-accent/10 to-transparent" />
             <span className="text-[11px] font-[family-name:var(--font-jetbrains-mono)] text-muted/30 font-bold">{favorites.length}</span>
           </div>
           <div className="space-y-2">
             {favorites.map(fav => (
-              <div key={fav.name} className="bg-card border border-border rounded-2xl p-4 flex items-center gap-4">
+              <div key={fav.name} className="bg-card border border-border rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 hover:border-border/80">
+                {/* Icône favori */}
+                <div className="w-9 h-9 rounded-xl bg-accent/[0.10] flex items-center justify-center text-accent flex-shrink-0">
+                  <Icon name="star" size={15} fill />
+                </div>
+                {/* Contenu */}
                 <div className="flex-1 min-w-0">
                   <div className="text-[14px] font-semibold truncate">{fav.name}</div>
                   <div className="flex items-center gap-2 mt-1.5">
@@ -674,9 +679,22 @@ export default function FoodPage() {
                       <span><span className="text-red/60">L</span>{fav.fat}</span>
                     </div>
                   </div>
+                  {/* Mini macro bars */}
+                  <div className="flex gap-1 mt-2">
+                    {[
+                      { val: fav.protein, max: targets.protein, color: 'bg-blue' },
+                      { val: fav.carbs, max: targets.carbs, color: 'bg-yellow' },
+                      { val: fav.fat, max: targets.fat, color: 'bg-red' },
+                    ].map((m, i) => (
+                      <div key={i} className="flex-1 h-[2px] bg-foreground/[0.04] rounded-full overflow-hidden">
+                        <div className={`h-full ${m.color} rounded-full transition-all duration-500`} style={{ width: `${Math.min((m.val / m.max) * 100, 100)}%` }} />
+                      </div>
+                    ))}
+                  </div>
                 </div>
+                {/* Actions */}
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  <button onClick={() => toggleFavorite(fav)} className="w-8 h-8 flex items-center justify-center rounded-lg text-accent">
+                  <button onClick={() => toggleFavorite(fav)} className="w-8 h-8 flex items-center justify-center rounded-lg text-accent hover:bg-accent/8 transition-all">
                     <Icon name="star" size={15} fill />
                   </button>
                   <button onClick={() => addFavoriteMeal(fav)} disabled={addingRecent === fav.name}

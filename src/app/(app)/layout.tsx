@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { UserProvider } from '@/hooks/useUser';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Sidebar } from '@/components/layout/Sidebar';
+import { ResumeHome } from '@/components/layout/ResumeHome';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
@@ -14,6 +15,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <UserProvider userId={userId}>
+      <ResumeHome />
       <div className="min-h-dvh bg-background">
         {/* Desktop sidebar — hidden on mobile */}
         <Sidebar />
